@@ -738,7 +738,9 @@ const editor = {
     },
 
     // OBJECT MANAGEMENT:
-    addObject(instance) {
+    addObject(instance, multiple = false) {
+        // Multiple - Use When importing large amounts of objects at once
+        
         // Create object
         this.scene.add(instance);
         this.objInstances.push(instance);
@@ -753,7 +755,7 @@ const editor = {
         if (instance.arrowHelper) this.scene.add(instance.arrowHelper);
 
         // Select item
-        this.attachTransform(instance.boundingMesh);
+        if (!multiple) this.attachTransform(instance.boundingMesh);
     },
     removeObject(object) {
         // Remove the object passed in or the selected object
@@ -840,7 +842,7 @@ const editor = {
 
             // Create the objects
             for (let data of map.objects) {
-                this.addObject(ObjectInstance.deserialize(data));
+                this.addObject(ObjectInstance.deserialize(data), true);
             }
             delete map.objects; // Remove so it's not part of the map config
 
