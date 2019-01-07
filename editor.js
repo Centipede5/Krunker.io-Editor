@@ -757,7 +757,7 @@ const editor = {
         // Select item
         if (!multiple) this.attachTransform(instance.boundingMesh);
     },
-    removeObject(object) {
+    removeObject(object, multiple = false) {
         // Remove the object passed in or the selected object
         object = object ? object.boundingMesh : this.transformControl.object;
         if (object) {
@@ -776,7 +776,7 @@ const editor = {
             if (instance.arrowHelper) this.scene.remove(instance.arrowHelper);
 
             // Remove transform
-            this.hideTransform();
+            if (!multiple) this.hideTransform();
         } else {
             console.log("No object to remove.");
         }
@@ -1062,9 +1062,10 @@ const editor = {
         // Remove each object
         while (this.objInstances.length > 0) {
             // `removeObject` will remove this value from the array
-            this.removeObject(this.objInstances[0]);
-            updateObjectCount(0);
+            this.removeObject(this.objInstances[0], true);
         }
+        updateObjectCount(0);
+        this.hideTransform();
     },
     xyzKeys: ["X", "Y", "Z"],
     updateObjConfigGUI() {
