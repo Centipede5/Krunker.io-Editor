@@ -147,6 +147,13 @@ module.exports.prefabs = {
         castShadow: true,
         receiveShadow: true
     },
+    TREE: {
+        dontRound: true,
+        complex: true,
+        gen: parent => loadObj(parent, "models/tree_0.obj", "textures/tree_0.png", config.treeScale),
+        castShadow: true,
+        receiveShadow: true
+    },
     VEHICLE: {
         dontRound: true,
         complex: true,
@@ -334,6 +341,14 @@ module.exports.texturePrefabs = {
     },
     FLAG: {
         src: "flag_0",
+        filter: THREE.NearestFilter
+    },
+    CHECK: {
+        src: "check_0",
+        filter: THREE.NearestFilter
+    },
+    GRASS: {
+        src: "grass_0",
         filter: THREE.NearestFilter
     }
 };
