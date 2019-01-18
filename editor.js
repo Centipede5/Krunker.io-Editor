@@ -207,7 +207,8 @@ class ObjectInstance extends THREE.Object3D {
         else this.texture = (config.textureIDS[data.t||0])||ObjectInstance.DEFAULT_TEXTURE;
         this.collidable = (data.col===undefined?true:false);
         this.penetrable = (data.pe?true:false);
-        this.boost = (!!data.b);
+        this.boost = data.b || 0,
+        !0 === this.boost && (this.boost = 1),
         this.team = (data.tm||0);
         this.visible = (data.v===undefined?true:false);
         this.terrain = data.ter||false;
@@ -318,7 +319,7 @@ class ObjectInstance extends THREE.Object3D {
         data.s[2] = Math.round(data.s[2]);
         if (!this.collidable) data.col = (!this.collidable)?1:0;
         if (this.penetrable) data.pe = 1;
-        if (this.boost) data.b = true;
+        if (this.boost) data.b = this.boost;
         if (!this.visible) data.v = 1;
         let rot = this.rot;
         if (rot[0] || rot[1] || rot[2]) data.r = rot.map(v => v.round(2));
@@ -402,7 +403,7 @@ const editor = {
             opacity: 1,
             collidable: true,
             penetrable: false,
-            boost: true,
+            boost: 0,
             team: 0,
             visible: true
         };
@@ -1118,7 +1119,7 @@ const editor = {
             });
             this.objConfigOptions.push(o);
         }  if (instance.prefab.boostable) {
-            o = this.objConfigGUI.add(this.objConfig, "boost").name("Boost").listen().onChange(c => {
+            o = this.objConfigGUI.add(this.objConfig, "boost").name("Boost", -10, 10, .1).listen().onChange(c => {
                 instance.boost = c;
             });
             this.objConfigOptions.push(o);
