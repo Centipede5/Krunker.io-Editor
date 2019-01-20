@@ -71,6 +71,9 @@ class ObjectInstance extends THREE.Object3D {
             bb.max.z - bb.min.z
         ];
     }
+    
+    get part() { return this._part; }
+    set part(t) { this._part = t; }
 
     get texture() { return this._texture; }
     set texture(texture) {
@@ -208,6 +211,7 @@ class ObjectInstance extends THREE.Object3D {
         this.collidable = (data.col===undefined?true:false);
         this.penetrable = (data.pe?true:false);
         this.boost = data.b || 0,
+        this.part = data.pr || 0,
         !0 === this.boost && (this.boost = 1),
         this.team = (data.tm||0);
         this.visible = (data.v===undefined?true:false);
@@ -321,6 +325,7 @@ class ObjectInstance extends THREE.Object3D {
         if (this.penetrable) data.pe = 1;
         if (this.boost) data.b = this.boost;
         if (!this.visible) data.v = 1;
+		if (this.part) data.pr = this.part;
         let rot = this.rot;
         if (rot[0] || rot[1] || rot[2]) data.r = rot.map(v => v.round(2));
         if (this.color != 0xffffff) data.c = this.color;
@@ -401,6 +406,7 @@ const editor = {
             color: 0xffffff,
             emissive: 0x000000,
             opacity: 1,
+            part: 0,
             collidable: true,
             penetrable: false,
             boost: 0,
@@ -1123,6 +1129,16 @@ const editor = {
                 instance.boost = c;
             });
             this.objConfigOptions.push(o);
+        }  if (instance.prefab.hasParticles) {
+            let options = {
+                Snow: 0,
+                Rain: 1,
+                Fog: 2
+            };
+            o = this.objConfigGUI.add(this.objConfig, "part").options(options).name("Type").listen().onChange(c => {
+                instance.part = c;
+            });
+            this.objConfigOptions.push(o); 
         }
 
         // COLOR:
