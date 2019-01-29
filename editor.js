@@ -3,16 +3,14 @@
 console.warn = (text) => {};
 console.info = (text) => {};
 
-// PREVENT MISHAPS:
-window.onbeforeunload = function() {
-    return true;
-};
-
 // STORAGE:
 var canStore = (typeof(Storage) !== "undefined");
 window.saveVal = function(name, val) {
     if (canStore) localStorage.setItem(name, val);
-}
+};
+window.getSavedVal = function(name) {
+    return canStore ?  localStorage.getItem(name) : null;
+};
 
 // HTML SHIT:
 function updateObjectCount(count) {
@@ -23,13 +21,13 @@ function updateObjectCount(count) {
 var THREE = require("three");
 THREE.OBJLoader = require("./libs/OBJLoader.js")(THREE);
 THREE.PointerLockControls = require("./libs/PointerLockControls.js")(THREE);
-require("./libs/TransformControls.js")(THREE);
+THREE.TransformControls = require("./libs/TransformControls.js")(THREE);
 const prefabs = require("./data/prefabs.js").prefabs;
 const PREFABS = require("./data/prefabs.js");
 const texturePrefabs = PREFABS.texturePrefabs;
 const loadTexturePrefab = PREFABS.loadTexturePrefab;
 const initScene = require("./libs/render.js").initScene;
-const biomes = require("./data/map.js").biomes;
+//const biomes = require("./data/map.js").biomes;
 const GEOS = require("./libs/geos.js");
 const UTILS = require("./libs/utils.js");
 const config = require("./config.js");
@@ -413,11 +411,38 @@ const editor = {
             team: 0,
             visible: true
         };
+        
+        this.highlightObject = null;
+        this.defaultSettings = null;
+        this.settings = {
+            degToRad: false,
+            backupMap: false,
+            antiAlias: false,
+            highPrecision: false,
+            gridVisibility: true,
+            gridOpacity: .25,
+            gridSize: 100,
+            gridSpacing: 10,
+            objectHighlight: false,
+            mergeVoxels: false,
+            phOpacity: 0.3,
+            phEmissive: '#FFFFFF',
+            phColor:'#FFFFFF',
+            speedNormal: 70,
+            speedSprint: 180,
+            voxelSize: 10,
+            imageSize: 1,
+            assetAutoGroup: false,
+        };
+        this.copy = null;
+        this.groups = [];
 
         this.clock = new THREE.Clock();
+        this.initSettings();
         this.initRenderer();
         this.initScene();
         this.initGUI();
+        this.initAdvancedGUI();
         this.initControls();
         this.registerEvents();
         this.setSnapping(true);
@@ -447,23 +472,23 @@ const editor = {
 
         // GUI:
         let gui = new dat.GUI();
-        let mapGUI = gui.addFolder("Map Config");
-        mapGUI.add(this.mapConfig, "name").name("Name").listen();
-        mapGUI.add(this.mapConfig, "modURL").name("Mod URL").listen();
+        this.mapGUI = gui.addFolder("Map Config");
+        this.mapGUI.add(this.mapConfig, "name").name("Name").listen();
+        this.mapGUI.add(this.mapConfig, "modURL").name("Mod URL").listen();
 
-        mapGUI.addColor(this.mapConfig, "ambient").name("Ambient Light").onChange(v => {
+        this.mapGUI.addColor(this.mapConfig, "ambient").name("Ambient Light").onChange(v => {
             this.ambientLight.color.set(v);
         });
-        mapGUI.addColor(this.mapConfig, "sky").name("Sky Color").onChange(v => {
+        this.mapGUI.addColor(this.mapConfig, "sky").name("Sky Color").onChange(v => {
             this.scene.background = new THREE.Color(v);
         });
-        mapGUI.addColor(this.mapConfig, "light").name("Light Color").onChange(v => {
+        this.mapGUI.addColor(this.mapConfig, "light").name("Light Color").onChange(v => {
             this.skyLight.color.set(v);
         });
-        mapGUI.addColor(this.mapConfig, "fog").name("Fog Color").onChange(v => {
+        this.mapGUI.addColor(this.mapConfig, "fog").name("Fog Color").onChange(v => {
             this.scene.fog.color.set(v);
         });
-        mapGUI.add(this.mapConfig, "fogD", 10, 2000).name("Fog Distance").listen().onChange(v => {
+        this.mapGUI.add(this.mapConfig, "fogD", 10, 2000).name("Fog Distance").listen().onChange(v => {
             this.scene.fog.far = v;
         });
 
@@ -482,19 +507,227 @@ const editor = {
 
         // OBJECT COMMANDS:
         document.getElementById("deleteObject").addEventListener("click", ev => {
-            this.removeObject();
+            this.objectSelected(true) ? this.removeGroup() : this.removeObject();
         });
         document.getElementById("duplicateObject").addEventListener("click", ev => {
-            this.duplicateObject();
+            this.objectSelected(true) ? this.duplicateGroup() : this.duplicateObject();
         });
 
         // MAP COMMANDS:
         document.getElementById("importMap").addEventListener("click", ev => {
-            this.importMap();
+            ev.shiftKey ? this.loadFile('importMap') : this.importMap();
         });
         document.getElementById("exportMap").addEventListener("click", ev => {
+            if(ev.shiftKey) this.copyToClipboard(this.getMapExport()); 
             this.exportMap();
         });
+        document.getElementById("newMap").addEventListener("click", ev => {
+            confirm("Are you sure you want to reset the map?") && this.clearMap();
+        });
+    },
+    
+    initAdvancedGUI() {
+        
+        // GUI:
+        this.advancedGUI = new dat.GUI();
+        this.advancedGUI.domElement.id = 'advancedGUI';
+
+        let options = {
+            rotation: 0,
+            json: (() => this.jsonInput()),
+            file: (() => this.jsonInput(true)),
+            textGen: (() => this.textToObjects()),
+            create: (() => this.copyObjects(false, true)),
+            stop: (() => this.stopGrouping()),
+            stopAll: (() => this.stopGrouping(true)),
+            exportObj: (() => this.exportObjects()),
+            exportFull: (() => this.exportObjects(true)),
+            copy: (() => this.copyObjects()),
+            cut: (() => this.copyObjects(true)),
+            paste: (() => this.pasteObjects()),
+            texture: "DEFAULT",
+            scaleMapX: 1.0,
+            scaleMapY: 1.0,
+            scaleMapZ: 1.0,
+            scaleMap: (() => this.scaleMap()),
+            transformMap: (() => this.transformMap()),
+            colorizeR: (() => this.colorizeMap(false, false, true)),
+            colorizeG: (() => this.colorizeMap(false, true)),
+            colorizeI: (() => this.colorizeMap(prompt("Input colors. (Seperate using a comma)", ""))),
+            voxelConvert: (() => this.convert()),
+            voxelImport: (() => this.convert(true)), 
+            imageConvert: (() => this.convert(false, true)),
+            imageImport: (() => this.convert(true, true)), 
+            editColor: (() => this.editGroup('color', prompt("Input color", ""))),
+            reset: (() => this.resetSettings()),
+            frameObject: (() => this.frameObject()),
+            frameThickness: 10,
+            frameCeiling: false,
+            frameFloor: false,
+            //exportToObj: (() => this.exportToObj()),
+            reflectDir: 0,
+            reflectMap: (() => this.reflectMap()),
+            speedReset: (() => (this.setSettings('speedNormal', 70), this.setSettings('speedSprint', 180), this.advancedGUI.updateDisplay())),
+            breakableHealth: 1,
+            breakableCollision: false,
+            breakableMap: (() => this.breakableMap()),
+            plannerXDir: 0,
+            plannerYDir: 0,
+            plannerZDir: 0,        
+            plannerXSpace: 0,
+            plannerYSpace: 0,
+            plannerZSpace: 0,
+            plannerSize: 10,
+            plannerColor: '#460050',
+            plannerExecute: (() => this.layoutPlanner())
+        };
+        
+        let mainMenu = this.advancedGUI.addFolder("Advanced");
+        mainMenu.open();
+        
+        let assetMenu = mainMenu.addFolder("Assets");
+        //let assets = localStorage.getItem('krunk_assets') ? JSON.parse(localStorage.getItem('krunk_assets')) : {};
+        
+        assetMenu.add(this.settings, "assetAutoGroup").name("Auto Group").onChange(t => {this.setSettings('assetAutoGroup', t)}); 
+        assetMenu.add(options, "rotation", 0, 359, 1).name("Rotation")
+        assetMenu.add(options, "json").name("Json Import");
+        assetMenu.add(options, "file").name("File Import");
+        //this.assetFolder(assets, assetMenu);
+        
+        let groupingMenu = mainMenu.addFolder("MultiObject");
+        groupingMenu.add(options, "create").name("Create Group");
+        groupingMenu.add(options, "stop").name("Stop Group"); 
+        groupingMenu.add(options, "stopAll").name("Stop All Groups"); 
+        groupingMenu.add(options, "copy").name("Copy");
+        groupingMenu.add(options, "cut").name("Cut");
+        groupingMenu.add(options, "paste").name("Paste");
+        
+        let editMenu = groupingMenu.addFolder("Edit");
+        let textures = {
+            "Default": "DEFAULT"
+        };
+        for (let key in texturePrefabs) {
+            if (key != "DEFAULT") {
+                if (!texturePrefabs.hasOwnProperty(key)) continue;
+                textures[this.formatConstName(key)] = key;
+            }
+        }
+        editMenu.add(options, "texture").options(textures).name("Texture").listen().onChange(t => {
+            this.editGroup('texture', t);
+        });
+        editMenu.add(options, "editColor").name("Color");
+        
+        let exportMenu = groupingMenu.addFolder("Export");
+        
+        exportMenu.add(options, "exportObj").name("Objects");
+        exportMenu.add(options, "exportFull").name("Full");         
+        
+        let otherMenu = mainMenu.addFolder("Other Features");
+        
+        let colorizeMenu = otherMenu.addFolder("Colorize");
+        colorizeMenu.add(options, "colorizeR").name("Random"); 
+        colorizeMenu.add(options, "colorizeG").name("Gold");
+        colorizeMenu.add(options, "colorizeI").name("Input");
+        
+        let scaleMapMenu = otherMenu.addFolder("Scale Map");
+        scaleMapMenu.add(options, "scaleMapX").name("X"); 
+        scaleMapMenu.add(options, "scaleMapY").name("Y"); 
+        scaleMapMenu.add(options, "scaleMapZ").name("Z");     
+        scaleMapMenu.add(options, "scaleMap").name("Scale");
+        
+        let reflectMenu = otherMenu.addFolder("Reflect Map");
+        reflectMenu.add(options, "reflectDir").options({X: 0, Y: 1, Z: 2}).name("Direction"); 
+        reflectMenu.add(options, "reflectMap").name("Reflect");
+        
+        let frameMenu = otherMenu.addFolder("Frame");
+        frameMenu.add(options, "frameThickness").name("Wall Thickness"); 
+        frameMenu.add(options, "frameCeiling").name("Has Ceiling"); 
+        frameMenu.add(options, "frameFloor").name("Has Floor"); 
+        frameMenu.add(options, "frameObject").name("Frame It");  
+        
+        let voxelsMenu = otherMenu.addFolder('Voxels');
+        voxelsMenu.add(this.settings, "mergeVoxels").name("Merge").onChange(t => {this.setSettings('mergeVoxels', t)});
+        voxelsMenu.add(this.settings, "voxelSize").name("Size").onChange(t => {this.setSettings('voxelSize', t)});
+        voxelsMenu.add(options, "voxelConvert").name("Convert");
+        voxelsMenu.add(options, "voxelImport").name("Import"); 
+        
+        let imageMenu = otherMenu.addFolder('Image Converter');
+        imageMenu.add(this.settings, "imageSize").name("Size").onChange(t => {this.setSettings('imageSize', t)});
+        imageMenu.add(options, "imageConvert").name("Convert");
+        imageMenu.add(options, "imageImport").name("Import"); 
+        
+        let breakableMenu = otherMenu.addFolder('Breakable Map');
+        breakableMenu.add(options, "breakableHealth", 1, 0, 1000).name("Health");
+        breakableMenu.add(options, "breakableCollision").name("Force Collision");
+        breakableMenu.add(options, "breakableMap").name("Execute");
+        
+        let plannerMenu = otherMenu.addFolder('Layout Planner');
+        plannerMenu.add(options, "plannerSize").name("Cube Size");
+        plannerMenu.addColor(options, "plannerColor").name("Cube Color");
+        plannerMenu.add(options, "plannerXDir").name("Cubes in X");
+        plannerMenu.add(options, "plannerXSpace").name("Space in X");
+        plannerMenu.add(options, "plannerYDir").name("Cubes in Y");
+        plannerMenu.add(options, "plannerYSpace").name("Space in Y");
+        plannerMenu.add(options, "plannerZDir").name("Cubes in Z");
+        plannerMenu.add(options, "plannerZSpace").name("Space in Z");
+        plannerMenu.add(options, "plannerExecute").name("Execute");
+        
+        otherMenu.add(options, "textGen").name("Text Generator");
+        //otherMenu.add(options, "exportToObj").name("Export To Obj");
+        
+        let settingsMenu = mainMenu.addFolder('Settings');
+        settingsMenu.add(this.settings, "degToRad").name("Anti Radians").onChange(t => {this.setSettings('degToRad', t)});
+        settingsMenu.add(this.settings, "backupMap").name("Auto Backup").onChange(t => {this.setSettings('backupMap', t)});
+        settingsMenu.add(this.settings, "antiAlias").name("Anti-aliasing").onChange(t => {this.setSettings('antiAlias', t), alert("This change will occur after you refresh")});   
+        settingsMenu.add(this.settings, "highPrecision").name("High Precision").onChange(t => {this.setSettings('highPrecision', t), alert("This change will occur after you refresh")});
+        settingsMenu.add(this.settings, "objectHighlight").name("Hightlight").onChange(t => {this.setSettings('objectHighlight', t)});
+
+        let gridMenu = settingsMenu.addFolder('Grid');
+        gridMenu.add(this.settings, "gridVisibility").name("Visible").onChange(t => {this.setSettings('gridVisibility', t), this.updateGridHelper()});      
+        gridMenu.add(this.settings, "gridOpacity", 0.05, 1, 0.05).name("Opacity").onChange(t => {this.setSettings('gridOpacity', t), this.updateGridHelper()});
+        gridMenu.add(this.settings, "gridSize").name("Size").onChange(t => {this.setSettings('gridSize', Math.abs(t) || this.defaultSettings.gridSize), this.updateGridHelper()});      
+        gridMenu.add(this.settings, "gridSpacing").name("Spacing").onChange(t => {this.setSettings('gridSpacing', Math.abs(t) || this.defaultSettings.gridSpacing), this.updateGridHelper()}); 
+
+        let speedMenu = settingsMenu.addFolder('Speed');
+        speedMenu.add(this.settings, "speedNormal").name("Normal").onChange(t => {this.setSettings('speedNormal', Math.abs(t) || this.defaultSettings.speedNormal)});      
+        speedMenu.add(this.settings, "speedSprint").name("Sprinting").onChange(t => {this.setSettings('speedSprint', Math.abs(t) || this.defaultSettings.speedSprint)});
+        speedMenu.add(options, "speedReset").name("Reset Speed");
+
+        let placeholderMenu = settingsMenu.addFolder('Placeholder');
+        placeholderMenu.add(this.settings, "phOpacity", 0, 1, .1).name("Opacity").onChange(t => {this.setSettings('phOpacity', t)});
+        placeholderMenu.addColor(this.settings, "phEmissive",).name("Emissive").onChange(t => {this.setSettings('phEmissive', t)});
+        placeholderMenu.addColor(this.settings, "phColor").name("Color").onChange(t => {this.setSettings('phColor', t)});
+
+        settingsMenu.add(options, "reset").name("Reset All Settings");    
+    },
+
+    assetFolder(assets, menu) {
+        let options = {};
+        for (let ob in assets) {
+            if (!Array.isArray(assets[ob])) {
+                let folder = menu.addFolder(ob);
+                this.assetFolder(assets[ob], folder);
+            } else {
+                options[ob] = (() => this.replaceObject(JSON.stringify(assets[ob]), false, false, this.settings.assetAutoGroup));
+                menu.add(options, ob).name(ob + " [" + assets[ob].length + "]");
+            }
+        }
+    },
+    
+    // INIT SETTINGS
+    initSettings() {
+        this.defaultSettings = JSON.parse(JSON.stringify(this.settings));
+        let ls = window.getSavedVal('kro_editor');
+        if (ls == null) return;
+        try {
+            JSON.parse(ls);
+        } catch (e) {
+            return;
+        }
+        let jsp = JSON.parse(ls);
+        for (let set in jsp) {
+            this.settings[set] = jsp[set];
+        }  
     },
 
     // INIT RENDERER:
@@ -502,9 +735,9 @@ const editor = {
 
         // RENDERER:
         this.renderer = new THREE.WebGLRenderer({
-            precision: "mediump",
+            precision: this.settings.highPrecision ? "highp" : "mediump",
     		powerPreference: "high-performance",
-    		antialias: false
+    		antialias: this.settings.antiAlias ? true : false
         });
         this.renderer.setPixelRatio(window.devicePixelRatio * 0.6);
         this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -681,10 +914,19 @@ const editor = {
                     this.removeObject();
                     break;
                 case 80: // p
-                    this.addPlaceholder();
+                    this.createPlaceholder();
                     break;
                 case 82: // r
-                    ev.shiftKey && this.duplicateObject()
+                    if (ev.ctrlKey) this.duplicateObject();
+                    break;
+                case 67: //ctrl c
+                    if (ev.ctrlKey) this.copyObjects();
+                    break;
+                case 86: //ctrl v
+                    if (ev.ctrlKey) this.pasteObjects();
+                    break;
+                case 70: //shift f (fix)
+                    if (ev.shiftKey) this.fixHitbox();
                     break;
             }
         });
@@ -710,6 +952,26 @@ const editor = {
                 this.hideTransform();
             }
         });
+        // Move event
+        this.container.addEventListener("mousemove", () => {
+            if (!this.settings.objectHighlight) return this.removeHighlight();
+
+            // Test the event
+            let rayPoint = new THREE.Vector2(
+                (event.clientX / window.innerWidth) * 2 - 1,
+                -(event.clientY / window.innerHeight) * 2 + 1
+            );
+
+            this.raycaster.setFromCamera(rayPoint, this.camera);
+
+            let intersects = this.raycaster.intersectObjects(this.boundingMeshes);
+            if (intersects.length > 0) {
+                let selected = intersects[0].object.userData.owner;
+                this.setHighlight(selected);
+            } else {
+                this.removeHighlight();
+            }
+        });
     },
 
     // RENDER:
@@ -728,7 +990,7 @@ const editor = {
         if (this.moveDown) moveDirection.y -= 1;
 
         // Move the camera
-        let moveSpeed = this.moveSprint ? 180 : 70;
+        let moveSpeed = this.moveSprint ? this.settings.speedSprint : this.settings.speedNormal;
         // this.scene.updateMatrixWorld();
         moveDirection.applyQuaternion(this.camera.getWorldQuaternion());
         this.controls.getObject().position.add(moveDirection.multiplyScalar(moveSpeed * dt));
@@ -737,6 +999,9 @@ const editor = {
         for (let instance of this.objInstances) {
             instance.update(dt);
         }
+
+        // Check Group changes
+        this.checkGroup();
 
         // Do the render
         this.renderer.render(this.scene, this.camera);
@@ -833,11 +1098,12 @@ const editor = {
         element.click();
         document.body.removeChild(element);
     },
-    importMap() {
-        // Prompt to get text
-        let mapRaw = prompt("Copy Paste Map Text Here");
-        if (!mapRaw || mapRaw == "") return;
+    importMap(fromFile = null) {
 
+        // Prompt to get text
+        let mapRaw = fromFile ? fromFile : prompt("Copy Paste Map Text Here");
+        if (!mapRaw || mapRaw == "") return;
+        
         // Parse the map
         try {
 
@@ -862,108 +1128,31 @@ const editor = {
 
             // Save config
             Object.assign(this.mapConfig, map);
+            
+            this.scene.background = new THREE.Color(this.mapConfig.sky);
+            this.skyLight.color.set(this.mapConfig.light);
+            this.scene.fog.color.set(this.mapConfig.fog);
+            this.scene.fog.far = this.mapConfig.fogD;
+            this.mapGUI.updateDisplay();
+            
         } catch (e) {
             console.log(e);
             alert("Failed to import map with error:\n" + e.toString());
         }
     },
-    
-    // OBJECT REPLACEMENT
-    replaceObject(str) {
-        // Replace the object passed in or the selected object
-        let object = this.transformControl.object;
-        if (object) {
-            
-            // Parse the map
-            try {
-                
-                // Remove the selected object
-                this.removeObject(object);
-                
-                let data = JSON.parse(str);
-                data = data.objects ? data.objects : data
-                
-                // Find center of objects
-                let center = this.findCenter(data)
-                
-                // Correct position of the objects
-                for (let obj of data) {
-                    obj.p[0] += object.userData.owner.position.x - center[0]
-                    obj.p[1] += object.userData.owner.position.y - (object.scale.y / 2) - center[1]
-                    obj.p[2] += object.userData.owner.position.z - center[2]
-                    
-                    this.addObject(ObjectInstance.deserialize(obj))
-                }
-            } catch (e) {
-                console.log(e);
-                alert("Failed to replace object with error:\n" + e.toString());
-            }
-        } else {
-            console.log("No object to replace.");
-        }  
+
+    // HIGHLIGHT MANAGEMENT:
+    setHighlight(object) {
+        if (this.highlightObject == object) return;
+        if (this.highlightObject) this.highlightObject.defaultMaterial.emissive.setHex(this.highlightObject.currentHex);
+        this.highlightObject = object;
+        this.highlightObject.currentHex = this.highlightObject.defaultMaterial.emissive.getHex();
+        this.highlightObject.defaultMaterial.emissive.setHex(Math.random() * 0xff00000 - 0xff00000);
     },
-    importObject(fromfile = false) {
-        if (fromfile) {
-            // Create File input Dialog
-            let file = document.createElement('input');
-            file.type = 'file';
-            file.id = 'file_input';
-            
-            let self = this;
-            file.addEventListener('change', ev => {
-                let files = ev.target.files;
-                if (files.length != 1) return alert('Please select 1 file');
-                let f = files[0];
-                let reader = new FileReader();
-
-                reader.onload = (theFile => {
-                    return e => {
-                        self.replaceObject(e.target.result);
-                    };
-                })(f);
-
-                reader.readAsText(f);
-            }, false);
-            
-            file.type = 'file';
-            file.id = 'file_input';
-            file.click();
-            return;
-        }
-        
-        // Prompt to get text
-        let objectRaw = prompt("Copy Paste Object Text Here", "");
-        if (!objectRaw || objectRaw == "") return;
-        
-        // Replace Object with inputed text
-        this.replaceObject(objectRaw)
-    },
-    findCenter(data) {
-        let min = data[0].p[1],
-        xMin = data[0].p[0] - (data[0].s[0] /2),
-        xMax = data[0].p[0] + (data[0].s[0] /2),
-        yMin = data[0].p[2] - (data[0].s[2] /2),
-        yMax = data[0].p[2] + (data[0].s[2] /2)
-
-
-        for (let obj of data) {
-            if (obj.p[1]  < min) min = obj.p[1]
-            if (obj.p[0] - (obj.s[0] /2) < xMin) xMin = obj.p[0] - (obj.s[0] /2)
-            if (obj.p[0] + (obj.s[0] /2) > xMax) xMax = obj.p[0] + (obj.s[0] /2)
-            if (obj.p[2] - (obj.s[2] /2) < yMin) yMin = obj.p[2] - (obj.s[2] /2)
-            if (obj.p[2] + (obj.s[2] /2) > yMax) yMax = obj.p[2] + (obj.s[2] /2)
-        }
-
-        return [Math.round((xMin + xMax)/2), min, Math.round((yMin + yMax)/2)]
-    },
-    
-    // PLACEHOLDER
-    addPlaceholder() {
-        // Get camera position
-        let pos = this.camera.getWorldPosition()
-        
-        // Create Object on camera position to use as placeholder
-        this.addObject(new ObjectInstance({p: [pos.x, pos.y - 10, pos.z], s: [10, 10, 10], e: 16777215, o: 0.3, c: 0}))
+    removeHighlight() {
+        if (!this.highlightObject) return;
+        this.highlightObject.defaultMaterial.emissive.setHex(this.highlightObject.currentHex);
+        this.highlightObject = null;
     },
 
     // TRANSFORM MANAGEMENT:
@@ -1056,10 +1245,9 @@ const editor = {
         }
 
         // Create new grid helper
-        let gridSize = 100;
-        let gridSpacing = 10;
-        this.gridHelper = new THREE.GridHelper(gridSize, gridSize / gridSpacing);
-        this.gridHelper.material.opacity = 0.25;
+        this.gridHelper = new THREE.GridHelper(this.settings.gridSize, this.settings.gridSize / this.settings.gridSpacing);
+        this.gridHelper.visible = this.settings.gridVisibility;
+        this.gridHelper.material.opacity = this.settings.gridOpacity;
         this.gridHelper.material.transparent = true;
         this.scene.add(this.gridHelper);
     },
@@ -1125,7 +1313,7 @@ const editor = {
             });
             this.objConfigOptions.push(o);
         }  if (instance.prefab.boostable) {
-            o = this.objConfigGUI.add(this.objConfig, "boost").name("Boost", -10, 10, .1).listen().onChange(c => {
+            o = this.objConfigGUI.add(this.objConfig, "boost").name("Boost", -10, 10, .1).onChange(c => {
                 instance.boost = c;
             });
             this.objConfigOptions.push(o);
@@ -1196,7 +1384,7 @@ const editor = {
             o = this.objConfigGUI.addFolder(name);
             for (let i = 0; i < 3; i++) {
                 o.add(array, i).name(this.xyzKeys[i]).onChange(v => {
-                    instance[instanceKey] = array;
+                    instance[instanceKey] = instanceKey == "rot" ? this.degToRad(array) : array;
                 });
             }
             this.objConfigOptions.push(o);
@@ -1215,6 +1403,794 @@ const editor = {
     },
     shorten(num) {
         return parseFloat(Math.round(num));
+    },
+    replaceObject(str, skip = false, fix = false, autoGroup = false) {
+        let selected = this.objectSelected();
+        if (!selected) {
+            //this.addObject(ObjectInstance.defaultFromType("CUBE"))
+            //selected = this.objectSelected()
+        }
+        if (selected) {
+            if (!fix) this.removeObject();
+            
+            let jsp = JSON.parse(str);
+            jsp = jsp.objects ? jsp.objects : (jsp.states || jsp.id ? jsp.map.objects : jsp);
+            
+            let rotation = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Assets"].__controllers[1].getValue());
+            if (fix) {
+                this.objConfigGUI.__folders["Object Config"].__controllers[1].setValue(false);
+                if (fix == "VEHICLE") rotation = 360 - THREE.Math.radToDeg(selected.rotation.y);
+            }
+             
+            if (rotation > 0) jsp = this.rotateObjects(jsp, rotation);
+            
+            let objectIds = [];
+            let center = this.findCenter(jsp);
+            for (let ob of jsp) {
+                ob.p[0] += selected.userData.owner.position.x - center[0];
+                ob.p[1] += selected.userData.owner.position.y - (selected.scale.y / 2) - center[1];
+                ob.p[2] += selected.userData.owner.position.z - center[2] - (fix == "VEHICLE" ? 0.5 : 0);
+                let obj = ObjectInstance.deserialize(ob);
+                if (autoGroup) objectIds.push(obj.boundingMesh.uuid);
+                this.addObject(obj, skip);
+            }
+            if (autoGroup) {
+                let groupBox = this.createBoundingBox(selected.position.x, selected.position.y, selected.position.z, center[3], center[4], center[5], THREE.Math.degToRad(rotation));
+                this.addObject(groupBox);
+                this.groups[groupBox.boundingMesh.uuid] = {
+                    owner: groupBox.boundingMesh, 
+                    pos: {x: groupBox.boundingMesh.position.x , y: groupBox.boundingMesh.position.y, z: groupBox.boundingMesh.position.z}, 
+                    scale: {x: groupBox.boundingMesh.scale.x, y: groupBox.boundingMesh.scale.y, z: groupBox.boundingMesh.scale.z},
+                    objects: objectIds
+                };
+            }
+
+            this.advancedGUI.__folders["Advanced"].__folders["Assets"].__controllers[1].setValue(0);
+        } else {
+            alert("You must select a object first");
+        }
+    },
+    createBoundingBox(x, y, z, sX, sY, sZ, rY) {
+        let obph = {p: [x, y, z], s: [sX + 1, sY + 1, sZ + 1], r: [0, rY, 0], e: this.settings.phEmissive, o: this.settings.phOpacity, c: this.settings.phColor, col: 1};
+        return ObjectInstance.deserialize(obph);
+    },
+    rotateObjects(jsp, deg) {
+        //Credit JustProb
+        switch (deg) {
+            case 90: return this.changeAngle(jsp);
+            case 180: return this.reflectAngle(jsp);
+            case 270: return this.reflectAngle(this.changeAngle(jsp));
+            default: return this.rotate3D(jsp, deg);
+        }
+        return jsp;
+    },
+    rotate3D(jsp, deg) {
+        //Credit JustProb
+        deg = THREE.Math.degToRad(deg - 180);
+
+        for (let ob of jsp) {
+            if (ob.id == 4) {
+                alert('Sorry we cant rotate planes (Ramps)');
+                return jsp;
+            }
+            let dist = Math.sqrt(ob.p[0] * ob.p[0] + ob.p[2] * ob.p[2]);
+            let angle = this.getAngle(ob);
+            ob.p[0] = -1 * Math.cos(-angle + deg) * dist;
+            ob.p[2] = Math.sin(angle - deg) * dist;
+            if (ob.r == undefined) ob.r = [0,0,0];
+            ob.r[1] = THREE.Math.degToRad(360 - THREE.Math.radToDeg(deg)) + ob.r[1];
+        }
+
+        return jsp;
+    },
+    getAngle(ob, live = false) {
+        //Credit JustProb
+        let x = live ? ob.x : ob.p[0],
+            z = live ? ob.z : ob.p[2],
+            angle =  Math.atan2(-1 * z, x);
+        return angle < 0 ? angle + (Math.PI * 2) : angle;
+    } ,
+    changeAngle(jsp){
+        //Credit JustProb
+        for (let ob of jsp) {
+            let x = ob.s[0],
+                y = ob.s[2];
+            ob.s[0] = y;
+            ob.s[2] = x;
+            let a = ob.p[0],
+                b = ob.p[2];
+            ob.p[0] = b;
+            ob.p[2] = a;
+        }
+        
+        return jsp;
+    },
+    reflectAngle(jsp){
+        //Credit JustProb
+        for (let ob of jsp) {
+            ob.p[0] = -1 * ob.p[0];
+            ob.p[2] = -1 * ob.p[2];
+        }
+        return jsp;
+    },
+    findCenter(jsp) {
+        let yMin = jsp[0].p[1],
+        yMax = jsp[0].p[1] + jsp[0].s[1],
+        xMin = jsp[0].p[0] - (jsp[0].s[0] / 2),
+        xMax = jsp[0].p[0] + (jsp[0].s[0] / 2),
+        zMin = jsp[0].p[2] - (jsp[0].s[2] / 2),
+        zMax = jsp[0].p[2] + (jsp[0].s[2] / 2);
+
+        for (let ob of jsp) {
+            if (ob.p[1] < yMin) yMin = ob.p[1];
+            if (ob.p[1] + ob.s[1] > yMax) yMax = ob.p[1] + ob.s[1];
+            if (ob.p[0] - (ob.s[0] / 2) < xMin) xMin = ob.p[0] - (ob.s[0] / 2);
+            if (ob.p[0] + (ob.s[0] / 2) > xMax) xMax = ob.p[0] + (ob.s[0] / 2);
+            if (ob.p[2] - (ob.s[2] / 2) < zMin) zMin = ob.p[2] - (ob.s[2] / 2);
+            if (ob.p[2] + (ob.s[2] / 2) > zMax) zMax = ob.p[2] + (ob.s[2] / 2);
+        }
+
+        return [Math.round((xMin + xMax) / 2), yMin, Math.round((zMin + zMax) / 2), Math.round(Math.abs(xMin) + Math.abs(xMax)), yMax, Math.round(Math.abs(zMin) + Math.abs(zMax))];
+    },
+    findMapCenter() {
+        let jsp = this.objInstances,
+        yMin = jsp[0].position.y,
+        xMin = jsp[0].position.x - (jsp[0].scale.x / 2),
+        xMax = jsp[0].position.x + (jsp[0].scale.x / 2),
+        zMin = jsp[0].position.z - (jsp[0].scale.z / 2),
+        zMax = jsp[0].position.z + (jsp[0].scale.z / 2);
+
+
+        for (let ob of jsp) {
+            if (ob.pos[1]  < yMin) yMin = ob.pos[1];
+            if (ob.pos[0] - (ob.size[0] / 2) < xMin) xMin = ob.pos[0] - (ob.size[0] / 2);
+            if (ob.pos[0] + (ob.size[0] / 2) > xMax) xMax = ob.pos[0] + (ob.size[0] / 2);
+            if (ob.pos[2] - (ob.size[2] / 2) < zMin) zMin = ob.pos[2] - (ob.size[2] / 2);
+            if (ob.pos[2] + (ob.size[2] / 2) > zMax) zMax = ob.pos[2] + (ob.size[2] / 2);
+        }
+
+        return [Math.round((xMin + xMax)/2), yMin, Math.round((zMin + zMax) / 2)];
+    },
+    applyCenter(objects) {
+        //justprob <3
+        let center = this.findCenter(objects);
+        for (let ob of objects){
+            ob.p[0] -= center[0];
+            ob.p[1] -= center[1];
+            ob.p[2] -= center[2];
+        }
+        return objects;
+    },
+    reflect(jsp, dir) {
+        //justprob <3
+        let obs = jsp.objects ? jsp.objects : (jsp.states || jsp.id ? jsp.map.objects : jsp);
+        let reference = this.findCenter(obs);
+        for (let ob of obs) {
+            ob.p[dir] * -1;
+            ob.p[dir] += 2 * (reference[dir] - ob.p[dir]);
+            
+            if ('d' in ob) {
+                if ((dir == 0 && (ob.d == 0 || ob.d == 2)) || (dir == 2 && (ob.d == 1 || ob.d == 3))) ob.d = Math.abs(dir + 2 - ob.d);
+            }
+        }
+            
+        if ('spawns' in jsp) {
+            for (let spwn of jsp.spawns) {
+                spwn[dir] * -1;
+                spwn[dir] += 2 * (reference[dir] - spwn[dir]);
+            }
+        }
+        
+        if ('camPos' in jsp) {
+            jsp.camPos[dir] * -1;
+            jsp.camPos[dir] += 2 * (reference[dir] - jsp.camPos[dir]);
+        }
+        
+        this.download(JSON.stringify(jsp), 'reflect.txt', 'text/plain');
+        return jsp;
+    },
+    reflectMap() {
+        if (this.settings.backupMap) this.exportMap();
+        
+        let dir = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Reflect Map"].__controllers[0].getValue()),
+        reference = this.findMapCenter();
+            
+        for (let ob of this.objInstances) {
+            let pos = ob.pos;
+            
+            pos[dir] * -1;
+            pos[dir] += 2 * (reference[dir] - pos[dir]);
+            ob.pos = pos;
+            
+            if (ob.direction != null) {
+                if ((dir == 0 && (ob.direction == 0 || ob.direction == 2)) || (dir == 2 && (ob.direction == 1 || ob.direction == 3))) ob.direction = Math.abs(dir + 2 - ob.direction);
+            }
+        }
+        this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Reflect Map"].__controllers[0].setValue(0);
+        this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Reflect Map"].close();
+    },
+    copyObjects(cut = false, group = false, ret = false) {
+        let selected = this.objectSelected();
+        if (!selected) return alert('Stretch a cube over your objects then try again');
+        if (group && this.groups && Object.keys(this.groups).includes(selected.uuid)) return alert('You cant combine groups');
+        
+        let pos = {
+            minX: selected.position.x - (selected.scale.x / 2), 
+            minY: selected.position.y, 
+            minZ: selected.position.z - (selected.scale.z / 2),  
+            maxX: selected.position.x + (selected.scale.x / 2), 
+            maxY: selected.position.y + selected.scale.y, 
+            maxZ: selected.position.z + (selected.scale.z / 2), 
+        };
+        let intersect = [];
+        let obbys = [];
+        for (let ob of this.objInstances) {
+            if (ob.boundingMesh.uuid == selected.uuid) continue;
+            if (this.intersect({
+                    minX: ob.boundingMesh.position.x - (ob.boundingMesh.scale.x / 2), 
+                    minY: ob.boundingMesh.position.y, 
+                    minZ: ob.boundingMesh.position.z - (ob.boundingMesh.scale.z / 2), 
+                    maxX: ob.boundingMesh.position.x + (ob.boundingMesh.scale.x / 2), 
+                    maxY: ob.boundingMesh.position.y + ob.boundingMesh.scale.y, 
+                    maxZ: ob.boundingMesh.position.z + (ob.boundingMesh.scale.z / 2)
+                }, pos)) {
+                if (!group) obbys.push(ob);
+                intersect.push(group ? ob.boundingMesh.uuid : ob.serialize());
+            }
+        }
+        
+        if (!group) {
+            if (cut && obbys.length && !group) {
+                for (let i = 0; i < obbys.length; i++) {
+                    this.removeObject(obbys[i]);
+                }
+            }
+            
+            if (ret) {
+                return intersect;
+            } else {
+                this.copy = JSON.stringify(intersect);
+            }
+        } else {
+            selected.userData.owner.emissive = 16777215;
+            selected.userData.owner.opacity = 0.5;
+            selected.userData.owner.color = 0;
+            this.objConfigGUI.__folders["Object Config"].__controllers[1].setValue(false);
+            this.groups[selected.uuid] = {
+                owner: selected, 
+                pos: {x: selected.position.x, y: selected.position.y, z: selected.position.z}, 
+                scale: {x: selected.scale.x, y: selected.scale.y, z: selected.scale.z},
+                objects: intersect
+            };
+        }
+    },
+    exportObjects(full = false) {
+        let obs = this.copyObjects(false, false, true);
+        if (obs.length == 0) return alert('There was nothing to save');
+        let nme = prompt("Name your asset", "");
+        if (nme == null || nme == "") return alert('Please name your asset');
+            
+        obs = this.applyCenter(obs);
+    
+        if (full) 
+            obs = {
+                "name": "asset_" + nme.replace(/ /g,"_"),
+                "modURL":"https://www.dropbox.com/s/4j76kiqemdo6d9a/MMOKBill.zip?dl=0",
+                "ambient":9937064,
+                "light":15923452,
+                "sky":14477549,
+                "fog":9280160,
+                "fogD":900,
+                "camPos":[0,0,0],
+                "spawns":[], 
+                "objects": obs
+            };
+        this.download(JSON.stringify(obs), 'asset_' + nme.replace(/ /g,"_") + '.txt', 'text/plain');
+        this.advancedGUI.__folders["Advanced"].__folders['MultiObject'].__folders['Export'].close();
+    },
+    pasteObjects() {
+        if (!this.copy) return alert('Please copy objects first');
+        if (!this.objectSelected()) return alert('Select a object you would like to replace with your copied objects');
+        this.replaceObject(this.copy);
+    },
+    removeGroup() {
+        if (Object.keys(this.groups).length == 0) return;
+        
+        let selected = this.objectSelected(true);
+        if (!selected) return;
+        
+        let remOb = [];
+        
+        this.groups[selected.uuid].objects.push(selected.uuid);
+        let obs = this.objInstances.filter(ob => this.groups[selected.uuid].objects.includes(ob.boundingMesh.uuid));
+       /* for (let i = 0; i < this.objInstances.length; i++) {
+            if (!this.groups[selected.uuid].objects.includes(this.objInstances[i].boundingMesh.uuid)) continue
+            
+                remOb.push(this.objInstances[i])
+        }*/
+            
+        for (let i = 0; i < obs.length; i++);
+            this.removeObject(obs[i]);
+        
+        delete this.groups[selected.uuid];
+    },
+    duplicateGroup() {
+        if (Object.keys(this.groups).length == 0) return;
+
+        let selected = this.objectSelected(true);
+        if (!selected) return alert('You cant duplicate a group that doesnt exist');
+            
+        let group = this.groups[selected.uuid];
+        let obs = this.objInstances.filter(ob => group.objects.includes(ob.boundingMesh.uuid));
+        let newObs = [];
+        
+        for (let ob of obs) {
+            let newOb = ObjectInstance.deserialize(ob.serialize());
+            newObs.push(newOb.boundingMesh.uuid);
+            this.addObject(newOb);
+        }
+        
+        let groupBox = ObjectInstance.deserialize(selected.userData.owner.serialize());
+        this.addObject(groupBox);
+        
+        selected = this.objectSelected();
+        this.groups[selected.uuid] = {
+            owner: selected, 
+            pos: {x: selected.position.x, y: selected.position.y, z: selected.position.z},
+            scale: {x: selected.scale.x, y: selected.scale.y, z: selected.scale.z},
+            objects: newObs
+        };
+    },
+    checkGroup() {
+        if (Object.keys(this.groups).length == 0) return;
+        
+        for (let uuid in this.groups) {
+            let group = this.groups[uuid];
+            
+            //Position Change Check
+            let currPos = group.owner.position,
+                oldPos = group.pos,
+                diffPos = [currPos.x - oldPos.x, currPos.y - oldPos.y, currPos.z - oldPos.z],
+                changedPos = !(diffPos[0] === 0 && diffPos[1] === 0 && diffPos[2] === 0);
+            
+            //Scale Change Check
+            let currScale = group.owner.scale,
+                oldScale = group.scale,
+                diffScale = [(currScale.x / oldScale.x) , (currScale.y  / oldScale.y), (currScale.z / oldScale.z)],
+                changedScale = !(diffScale[0] === 1 && diffScale[1] === 1 && diffScale[2] === 1);
+                
+            if (!changedPos && !changedScale) continue; // no changes
+            
+            let obs = this.objInstances.filter(ob => group.objects.includes(ob.boundingMesh.uuid));
+
+            for (let ob of obs) {
+                if (changedScale) {
+                    ob.boundingMesh.position.x *= diffScale[0];
+                    ob.boundingMesh.position.y *= diffScale[1];
+                    ob.boundingMesh.position.z *= diffScale[2];
+                    
+                    ob.boundingMesh.scale.x *= diffScale[0];
+                    ob.boundingMesh.scale.y *= diffScale[1];
+                    ob.boundingMesh.scale.z *= diffScale[2];
+                } else {
+                    ob.boundingMesh.position.x += diffPos[0];
+                    ob.boundingMesh.position.y += diffPos[1];
+                    ob.boundingMesh.position.z += diffPos[2];
+                }
+            }
+            
+            this.groups[group.owner.uuid].pos = {x: currPos.x, y: currPos.y, z: currPos.z};
+            this.groups[group.owner.uuid].scale = {x: currScale.x, y: currScale.y, z: currScale.z};
+        }
+    },
+    stopGrouping(all = false) {
+        if (Object.keys(this.groups).length == 0) return alert('You cant stop a group that doesnt exist');
+            
+        if (all) {
+            let obs = this.objInstances.filter(ob => Object.keys(this.groups).includes(ob.boundingMesh.uuid));
+            for (let ob of obs) {
+                this.removeObject(ob);
+            }
+            this.groups = [];
+        } else {
+            let selected = this.objectSelected(true);
+            if (!selected) return alert('You cant stop a group that doesnt exist');
+            
+            delete this.groups[selected.uuid];
+            return this.removeObject(selected.userData.owner);
+        }
+    },
+    editGroup(change = 'texture', val = null) {
+        if (Object.keys(this.groups).length == 0) return alert('You cant edit a group that doesnt exist');
+        let selected = this.objectSelected(true);
+        if (!selected) return alert('You cant edit a group that doesnt exist');
+        let group = this.groups[selected.uuid];
+        let obs = this.objInstances.filter(ob => group.objects.includes(ob.boundingMesh.uuid));
+        switch (change) {
+            case 'texture': for (let ob of obs) ob.texture = val; break;
+            case 'color': for (let ob of obs) ob.color = val; break;
+        }
+    },
+    fixHitbox() {
+        let selected = this.objectSelected();
+        if (!selected) return;
+        switch(selected.userData.owner.objType) {
+            case 'VEHICLE':
+                this.replaceObject('[{"p":[0,0,0],"s":[47,9,17],"v":1},{"p":[5,9,0],"s":[26,6,17],"v":1}]', true, selected.userData.owner.objType);
+                break;
+            case 'TREE':
+                this.replaceObject('[{"p":[0,0,0],"s":[9,55,9],"v":1},{"p":[0,37,16],"s":[15,15,15],"v":1},{"p":[0,30,-16],"s":[15,15,15],"v":1},{"p":[0,29,11],"s":[4,4,13],"v":1},{"p":[0,33,16],"s":[4,4,4],"v":1},{"p":[0,36,-6],"s":[4,4,5],"v":1},{"p":[0,55,0],"s":[37,37,37],"v":1}]', true, selected.userData.owner.objType);
+                break;
+        }
+    },
+    createPlaceholder() {
+        let pos = this.camera.getWorldPosition();
+        let obph = {p: [pos.x, pos.y - 10, pos.z], s: [10, 10, 10], e: this.settings.phEmissive, o: this.settings.phOpacity, c: this.settings.phColor, col: 1};
+        this.addObject(ObjectInstance.deserialize(obph));
+    },
+    colorizeMap(input = false, gold = false, rand = false) {
+        if (this.settings.backupMap) this.exportMap();
+        
+        if (input != false && (input == null || input == "")) return alert("Please input colors (ex: #000000,#ffffff)");
+            
+        if (input) input = input.trim().split(',');
+
+        for (let ob of this.objInstances) {
+            if (input) ob.color = input.length > 1 ? input[Math.floor(Math.random() * input.length)] : input[0];
+            if (gold) ob.color = "#FFDF00", ob.emissive = "#D4AF37";
+            if (rand) ob.color = this.getRandomColor();
+        }
+    },
+    getRandomColor() {
+        let length = 6,
+            chars = '0123456789ABCDEF',
+            hex = '#';
+        while (length--) hex += chars[(Math.random() * 16) | 0];
+        return hex;
+    },
+    scaleMap() {
+        if (this.settings.backupMap) this.exportMap();
+            
+        let sX = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Scale Map"].__controllers[0].getValue(),
+            sY = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Scale Map"].__controllers[1].getValue(),
+            sZ = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Scale Map"].__controllers[2].getValue();
+            
+        for (let ob of this.objInstances) {
+            let pos = ob.pos, size = ob.size;
+            
+            pos[0] *= sX;
+            pos[1] *= sY;
+            pos[2] *= sZ;
+
+            size[0] *= sX;
+            size[1] *= sY;
+            size[2] *= sZ;
+            
+            ob.size = size;
+            ob.pos = pos;
+        }
+    },
+    breakableMap() {
+        if (this.settings.backupMap) this.exportMap();
+        if (!confirm("Are you sure you want to make the whole map breakable?")) return;
+        let health = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Breakable Map"].__controllers[0].getValue(),
+        forcecol = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Breakable Map"].__controllers[0].getValue();
+        for (let ob of this.objInstances) {
+            ob.health = health;
+            if (forcecol) ob.collidable = true;
+        }
+    },
+    layoutPlanner() {
+        let blockX = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Layout Planner"].__controllers[2].getValue()),
+        spaceX = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Layout Planner"].__controllers[3].getValue()),
+        blockY = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Layout Planner"].__controllers[4].getValue()),
+        spaceY = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Layout Planner"].__controllers[5].getValue()),
+        blockZ = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Layout Planner"].__controllers[6].getValue()),
+        spaceZ = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Layout Planner"].__controllers[7].getValue()),
+        size = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Layout Planner"].__controllers[0].getValue(),
+        color = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Layout Planner"].__controllers[1].getValue();
+
+        let objects = [{"p":[0,0,0],"s":[size,size,size],"c":color}];
+        objects = this.replicateMulti(objects, blockX, spaceX, 0);
+        objects = this.replicateMulti(objects, blockY, spaceY, 1);
+        objects = this.replicateMulti(objects, blockZ, spaceZ, 2);
+        objects = this.applyCenter(objects);
+        for (let ob of objects) {
+            this.addObject(ObjectInstance.deserialize(ob), true);
+        }
+    },
+    replicateMulti(objs, number, space, dir){
+        //justprob <3
+        let objects = JSON.parse(JSON.stringify(objs));
+        let temp = objects;
+
+        for (let i = 0; i < number; i++) {
+            temp = this.replicate(temp, space, dir);
+            objects = objects.concat(temp);
+        }
+        return objects;
+    },
+    replicate(objs, space, dir){
+        let copyObjs = JSON.parse(JSON.stringify(objs));
+        let max = objs[dir].p[dir] + objs[dir].s[dir];
+        let min = objs[dir].p[dir];
+
+        for (let ob of objs) {
+            if (ob.p[dir] + ob.s[dir] > max) max = ob.p[dir] + ob.s[dir];
+            if (ob.p[dir] < min)  min = ob.p[dir];
+        }
+
+        for (let ob of copyObjs) ob.p[dir] += max - min + space;
+
+        return copyObjs;
+    },
+    convertVoxel(str, insert = false) {
+        if (insert && ! this.objectSelected()) return alert('Select a object to replace first');
+        let voxels = JSON.parse(str);
+        let mapout = {"name":"modmap","modURL":"","ambient":9937064,"light":15923452,"sky":14477549,"fog":9280160,"fogD":900,"camPos":[0,0,0],"spawns":[],"objects":[]};
+        let vlist = [];
+        for (let vx of voxels.voxels) vlist.push([parseInt(vx.x), parseInt(vx.y), parseInt(vx.z)]);
+        for (let voxel of vlist)  mapout.objects.push(this.voxelToObject(voxel));
+         
+        if (this.settings.mergeVoxels) mapout.objects = this.mergeObjects(mapout.objects);
+        if (insert) this.replaceObject(JSON.stringify(mapout.objects));
+        if (!insert) this.download(JSON.stringify(mapout), 'convertedVoxels.txt', 'text/plain');
+    },
+    convertImage(img, insert = false) {
+        if (insert && ! this.objectSelected()) return alert('Select a object to replace first');
+        let canvas = document.createElement('canvas');
+        let ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0, img.width, img.height);
+        let data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        let colors = [];
+        let objects = [];
+
+        for (let i = 0; i < data.length; i += 4) {
+            let rgb = this.rgbArrayToHex([data[i], data[i + 1], data[i + 2]])
+            let opacity = data[i + 3] / 255;
+            opacity = Math.round(opacity * 100) / 100;
+            colors.push([rgb, opacity]);
+        }
+        let height = 0; 
+        let horizontal = 0; 
+        for (let i = 0; i < colors.length; i++) {
+            horizontal += 1; 
+            if (i % canvas.width == 0) {
+                height++;
+                horizontal = 0; 
+            }
+            if (colors[i][1] == 0) continue;
+            let ob = {"p": [horizontal, -1 * height, 0], "s": [this.settings.imageSize, this.settings.imageSize, this.settings.imageSize], "c": colors[i][0], "c": colors[i][0]};
+            if (colors[i][1] != 1) ob.o = colors[i][1];
+            objects.push(ob);
+        }
+        objects = this.mergeObjects(objects);
+        let center = this.findCenter(objects);
+        for (let ob of objects){
+            ob.p[0] -= center[0];
+            ob.p[1] -= center[1];
+            ob.p[2] -= center[2];
+        }
+        let map = {"name":"New Krunker Map","modURL":"","ambient":9937064,"light":15923452,"sky":14477549,"fog":9280160,"fogD":900,"camPos":[0,0,0],"spawns":[],"objects":[]};
+        map.objects = objects;
+        if (insert) this.replaceObject(JSON.stringify(map.objects));
+        if (!insert) this.download(JSON.stringify(map), 'convertedImage.txt', 'text/plain');
+    },
+    convert(insert = false, img = false) {
+        this.loadFile(img ? 'convertImage' : 'convertVoxel', img, [insert]);
+    },
+    voxelToObject(voxel) {
+        return {
+            'p': [
+                parseInt(voxel[0]) * this.settings.voxelSize, 
+                parseInt(voxel[1]) * this.settings.voxelSize, 
+                parseInt(voxel[2]) * this.settings.voxelSize
+            ], 
+            's': [this.settings.voxelSize, this.settings.voxelSize, this.settings.voxelSize],
+        };
+    },
+    mergeObjects(objs) {
+        if(objs.length < 2) return objs;
+
+        let objectsMerged = 0;
+        for (let axis = 0; axis < 3; axis++) {
+            let axis1 = (axis + 1) % 3;
+            let axis2 = (axis + 2) % 3;
+            for (let i = 0; i < objs.length - 1; i++) {
+                for (let j = i + 1; j < objs.length; j++) {
+                    let cmi = axis % 2 ? objs[i].p[axis] + objs[i].s[axis] / 2 : objs[i].p[axis];//center of mass
+                    let cmj = axis % 2 ? objs[j].p[axis] + objs[j].s[axis] / 2 : objs[j].p[axis];
+                    if (objs[j].s[axis1] == objs[i].s[axis1] && objs[j].s[axis2] == objs[i].s[axis2] &&
+                        objs[j].p[axis1] == objs[i].p[axis1] && objs[j].p[axis2] == objs[i].p[axis2] &&
+                        Math.abs(cmj - cmi) <= Math.abs(objs[j].s[axis] / 2 + objs[i].s[axis] / 2) &&
+                        ((objs[j].c || 0) === (objs[i].c || 0)) &&
+                        ((objs[j].o || 1) === (objs[i].o || 1)) &&
+                        ((objs[j].t || 0) === (objs[i].t || 0)) &&
+                        ((objs[j].e || 0x0) === (objs[i].e || 0x0))) {
+                        let sX = Math.abs(cmj - cmi) + Math.abs(objs[j].s[axis] / 2 + objs[i].s[axis] / 2);
+                        let pX = (cmj + (objectsMerged + 1) * cmi) / (objectsMerged + 2);
+                        if(axis == 1) pX = Math.min(objs[i].p[axis], objs[j].p[axis]);
+                        objs[i].p[axis] = pX;
+                        objs[i].s[axis] = sX;
+                        objs.splice(j, 1);
+                        objectsMerged++;
+                        j--; 
+                    }
+                }
+                objectsMerged = 0;
+            } 
+        }
+
+        return objs;
+    },
+    textToObjects() {
+        let input = prompt("Input text", "");
+        if (input != false && (input == null || input == "")) return alert("Please input proper text");
+        input = input.toLowerCase();
+        let alphabet = {
+            'a': [{"p":[-3,0,0],"s":[1,8,1]},{"p":[3,0,0],"s":[1,8,1]},{"p":[0,8,0],"s":[5,1,1]},{"p":[0,4,0],"s":[5,1,1]}],
+            'b': [{"p":[-3,0,0],"s":[1,9,1]},{"p":[3,5,0],"s":[1,3,1]},{"p":[0,8,0],"s":[5,1,1]},{"p":[0,4,0],"s":[5,1,1]},{"p":[0,0,0],"s":[5,1,1]},{"p":[3,1,0],"s":[1,3,1]}],
+            'c': [{"p":[-3,1,0],"s":[1,7,1]},{"p":[0,8,0],"s":[5,1,1]},{"p":[0,0,0],"s":[5,1,1]},{"p":[3,8,0],"s":[1,1,1]},{"p":[3,0,0],"s":[1,1,1]}],
+            'd': [{"p":[-3,0,0],"s":[1,9,1]},{"p":[0,8,0],"s":[5,1,1]},{"p":[0,0,0],"s":[5,1,1]},{"p":[3,1,0],"s":[1,7,1]}],
+            'e': [{"p":[-3,0,0],"s":[1,9,1]},{"p":[0,8,0],"s":[5,1,1]},{"p":[0,0,0],"s":[5,1,1]},{"p":[0,4,0],"s":[5,1,1]},{"p":[3,8,0],"s":[1,1,1]},{"p":[3,4,0],"s":[1,1,1]},{"p":[3,0,0],"s":[1,1,1]}],
+            'f': [{"p":[-3,0,0],"s":[1,9,1]},{"p":[0,8,0],"s":[5,1,1]},{"p":[0,4,0],"s":[5,1,1]},{"p":[3,8,0],"s":[1,1,1]},{"p":[3,4,0],"s":[1,1,1]}],
+            'g': [{"p":[-3,1,0],"s":[1,7,1]},{"p":[0,8,0],"s":[5,1,1]},{"p":[0,0,0],"s":[5,1,1]},{"p":[3,8,0],"s":[1,1,1]},{"p":[3,0,0],"s":[1,4,1]},{"p":[1,3,0],"s":[3,1,1]}],
+            'h': [{"p":[-3,0,0],"s":[1,9,1]},{"p":[0,4,0],"s":[5,1,1]},{"p":[3,0,0],"s":[1,9,1]}],
+            'i': [{"p":[0,8,0],"s":[7,1,1]},{"p":[0,1,0],"s":[1,7,1]},{"p":[0,0,0],"s":[7,1,1]}],
+            'j': [{"p":[0,8,0],"s":[5,1,1]},{"p":[3,1,0],"s":[1,8,1]},{"p":[1,0,0],"s":[3,1,1]},{"p":[-2,2,0],"s":[1,1,1]},{"p":[-1,1,0],"s":[1,1,1]},{"p":[-3,8,0],"s":[1,1,1]}],
+            'k': [{"p":[-1,5,0],"s":[3,1,1]},{"p":[-3,0,0],"s":[1,9,1]},{"p":[1,4,0],"s":[3,1,1]},{"p":[1,6,0],"s":[1,2,1]},{"p":[2,8,0],"s":[1,1,1]},{"p":[3,8,0],"s":[1,1,1]},{"p":[3,0,0],"s":[1,4,1]}],
+            'l': [{"p":[-3,0,0],"s":[1,9,1]},{"p":[0,0,0],"s":[5,1,1]},{"p":[3,0,0],"s":[1,1,1]}],
+            'm': [{"p":[-3,0,0],"s":[1,8,1]},{"p":[0,0,0],"s":[1,6,1]},{"p":[3,0,0],"s":[1,8,1]},{"p":[-2,8,0],"s":[1,1,1]},{"p":[2,8,0],"s":[1,1,1]},{"p":[-1,6,0],"s":[1,2,1]},{"p":[1,6,0],"s":[1,2,1]}],
+            'n': [{"p":[-3,0,0],"s":[1,9,1]},{"p":[3,0,0],"s":[1,9,1]},{"p":[-2,7,0],"s":[1,1,1]},{"p":[-1,5,0],"s":[1,2,1]},{"p":[0,4,0],"s":[1,1,1]},{"p":[1,2,0],"s":[1,2,1]},{"p":[2,1,0],"s":[1,1,1]}],
+            'o': [{"p":[-3,1,0],"s":[1,7,1]},{"p":[3,1,0],"s":[1,7,1]},{"p":[0,8,0],"s":[5,1,1]},{"p":[0,0,0],"s":[5,1,1]}],
+            'p': [{"p":[-3,0,0],"s":[1,8,1]},{"p":[3,5,0],"s":[1,3,1]},{"p":[0,8,0],"s":[5,1,1]},{"p":[0,4,0],"s":[5,1,1]}],
+            'q': [{"p":[-3,1,0],"s":[1,7,1]},{"p":[3,1,0],"s":[1,7,1]},{"p":[0,8,0],"s":[5,1,1]},{"p":[0,0,0],"s":[5,1,1]},{"p":[2,1,0],"s":[1,1,1]},{"p":[1,1,0],"s":[1,2,1]},{"p":[0,2,0],"s":[1,3,1]}],
+            'r': [{"p":[-3,0,0],"s":[1,8,1]},{"p":[3,6,0],"s":[1,2,1]},{"p":[0,8,0],"s":[5,1,1]},{"p":[2,5,0],"s":[1,1,1]},{"p":[3,5,0],"s":[1,1,1]},{"p":[-1,4,0],"s":[3,1,1]},{"p":[1,4,0],"s":[1,1,1]},{"p":[2,3,0],"s":[1,1,1]},{"p":[3,0,0],"s":[1,3,1]}],
+            's': [{"p":[-3,5,0],"s":[1,3,1]},{"p":[0,8,0],"s":[5,1,1]},{"p":[3,8,0],"s":[1,1,1]},{"p":[0,4,0],"s":[5,1,1]},{"p":[3,1,0],"s":[1,3,1]},{"p":[0,0,0],"s":[5,1,1]},{"p":[-3,0,0],"s":[1,1,1]}],
+            't': [{"p":[0,0,0],"s":[1,8,1]},{"p":[0,8,0],"s":[7,1,1]}],
+            'u': [{"p":[3,1,0],"s":[1,8,1]},{"p":[0,0,0],"s":[5,1,1]},{"p":[-3,1,0],"s":[1,8,1]}],
+            'v': [{"p":[0,0,0],"s":[1,1,1]},{"p":[1,1,0],"s":[1,2,1]},{"p":[2,3,0],"s":[1,3,1]},{"p":[3,6,0],"s":[1,3,1]},{"p":[-1,1,0],"s":[1,2,1]},{"p":[-2,3,0],"s":[1,3,1]},{"p":[-3,6,0],"s":[1,3,1]}],
+            'w': [{"p":[2,0,0],"s":[1,1,1]},{"p":[1,1,0],"s":[1,2,1]},{"p":[0,3,0],"s":[1,6,1]},{"p":[3,1,0],"s":[1,8,1]},{"p":[-1,1,0],"s":[1,2,1]},{"p":[-3,1,0],"s":[1,8,1]},{"p":[-2,0,0],"s":[1,1,1]}],
+            'x': [{"p":[2,2,0],"s":[1,1,1]},{"p":[1,3,0],"s":[1,1,1]},{"p":[0,4,0],"s":[1,1,1]},{"p":[3,0,0],"s":[1,2,1]},{"p":[-1,3,0],"s":[1,1,1]},{"p":[-3,0,0],"s":[1,2,1]},{"p":[-2,2,0],"s":[1,1,1]},{"p":[1,5,0],"s":[1,1,1]},{"p":[-1,5,0],"s":[1,1,1]},{"p":[2,6,0],"s":[1,1,1]},{"p":[-2,6,0],"s":[1,1,1]},{"p":[3,7,0],"s":[1,2,1]},{"p":[-3,7,0],"s":[1,2,1]}],
+            'y': [{"p":[0,0,0],"s":[1,5,1]},{"p":[1,5,0],"s":[1,1,1]},{"p":[-1,5,0],"s":[1,1,1]},{"p":[2,6,0],"s":[1,1,1]},{"p":[-2,6,0],"s":[1,1,1]},{"p":[3,7,0],"s":[1,2,1]},{"p":[-3,7,0],"s":[1,2,1]}],
+            'z': [{"p":[0,0,0],"s":[7,1,1]},{"p":[-3,1,0],"s":[1,1,1]},{"p":[-2,2,0],"s":[1,1,1]},{"p":[-1,3,0],"s":[1,1,1]},{"p":[0,4,0],"s":[1,1,1]},{"p":[1,5,0],"s":[1,1,1]},{"p":[2,6,0],"s":[1,1,1]},{"p":[3,7,0],"s":[1,1,1]},{"p":[0,8,0],"s":[7,1,1]}]
+        };
+        let posX = 0, posY = 0;
+        let objects = [];
+        for (let chr of input) {
+            if (chr == " ") posX += 5;
+            if (chr == ".") posX = 0, posY -= 11;
+            if (chr in alphabet) {
+                let asset = JSON.parse(JSON.stringify(alphabet[chr])); // Stop from editing alphabet assets
+                for (let ob of asset) {
+                    ob.p[0] += posX;
+                    ob.p[1] += posY; 
+                    objects.push(ob);
+                }
+                posX += 9; 
+            }
+        }
+        //return objects;
+        this.replaceObject(JSON.stringify(objects), true);
+    },
+    frameObject() {
+        let selected = this.objectSelected();
+        if (!selected) return alert('Please Select a object');
+        let thickness = this.advancedGUI.__folders["Advanced"].__folders['Other Features'].__folders['Frame'].__controllers[0].getValue(),
+            ceiling = this.advancedGUI.__folders["Advanced"].__folders['Other Features'].__folders['Frame'].__controllers[1].getValue(),
+            floor = this.advancedGUI.__folders["Advanced"].__folders['Other Features'].__folders['Frame'].__controllers[2].getValue();
+
+        if (thickness < 1) return alert('Wall Thickness must be 1 or greator');
+        let pos = selected.position;
+        let size = selected.scale;
+        let cN = {p:[pos.x, pos.y, pos.z - (size.z / 2) - (thickness / 2)], s:[size.x + (thickness * 2), size.y, thickness]};
+        this.addObject(ObjectInstance.deserialize(cN), true);
+        
+        let cS = {p:[pos.x, pos.y, pos.z + (size.z / 2) + (thickness / 2)], s:[size.x + (thickness * 2), size.y, thickness]};
+        this.addObject(ObjectInstance.deserialize(cS), true);
+        
+        let cW = {p:[pos.x - (size.x / 2) - (thickness / 2), pos.y, pos.z], s:[thickness, size.y, size.z]};
+        this.addObject(ObjectInstance.deserialize(cW), true);
+        
+        let cE = {p:[pos.x + (size.x / 2) + (thickness / 2), pos.y, pos.z], s:[thickness, size.y, size.z]};
+        this.addObject(ObjectInstance.deserialize(cE), true);
+        
+        let cT = {p:[pos.x, pos.y + size.y, pos.z], s:[size.x + (thickness * 2), thickness, size.z + (thickness * 2)]};
+        if (ceiling) this.addObject(ObjectInstance.deserialize(cT), true);
+        
+        let cB = {p:[pos.x, pos.y - thickness, pos.z], s:[size.x + (thickness * 2), thickness, size.z + (thickness * 2)]};
+        if (floor) this.addObject(ObjectInstance.deserialize(cB), true);
+
+        this.advancedGUI.__folders["Advanced"].__folders['Other Features'].__folders['Frame'].__controllers[0].setValue(10);
+        this.advancedGUI.__folders["Advanced"].__folders['Other Features'].__folders['Frame'].__controllers[1].setValue(false);
+        this.advancedGUI.__folders["Advanced"].__folders['Other Features'].__folders['Frame'].__controllers[2].setValue(false);
+        this.advancedGUI.__folders["Advanced"].__folders['Other Features'].__folders['Frame'].close();
+    },
+    objectSelected(group = false) {
+        let selected = this.transformControl.object;
+        return selected ? (group ? (Object.keys(this.groups).includes(selected.uuid) ? selected : false) : selected) : false;
+    },
+    jsonInput(fromfile = false) {
+        if (fromfile) {
+            return this.loadFile('replaceObject', false, [true, false, this.settings.assetAutoGroup]);
+        }
+        let json = prompt("Import Object Json", "");
+        if (json != null && json != "" && this.objectSelected()) this.replaceObject(json, true, false, true);
+    },
+    setSettings(k, v) {
+        this.settings[k] = v;
+        window.saveVal('kro_editor', JSON.stringify(this.settings));
+    },
+    resetSettings() {
+        for (let set in this.settings) {
+            this.setSettings(set, this.defaultSettings[set]);
+        }
+        this.advancedGUI.updateDisplay();
+        alert('Some settings require a refresh take effect');
+    },
+    degToRad(r) {
+        return this.settings.degToRad ? [r[0] * (Math.PI / 180), r[1] * (Math.PI / 180), r[2] * (Math.PI / 180)] : r;
+    },
+    intersect(a, b) {
+        return (a.minX <= b.maxX && a.maxX >= b.minX) &&
+            (a.minY <= b.maxY && a.maxY >= b.minY) &&
+            (a.minZ <= b.maxZ && a.maxZ >= b.minZ);
+    },
+    copyToClipboard(str) {
+        const el = document.createElement('textarea');
+        el.value = str;
+        el.setAttribute('readonly', '');
+        el.style.position = 'absolute';
+        el.style.left = '-9999px';
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+    },
+    download(content, fileName, contentType) {
+        let a = document.createElement("a");
+        let file = new Blob([content], {type: contentType});
+        a.href = URL.createObjectURL(file);
+        a.download = fileName;
+        a.click();
+    },
+    loadFile(callback, img = false, args = []) {
+        let file = document.createElement('input');
+        file.type = 'file';
+        file.id = 'jsonInput';
+        
+        let self = this;
+        file.addEventListener('change', ev => {
+            if (ev.target.files.length != 1) return alert('Please select 1 file');
+            let f = ev.target.files[0];
+            let reader = new FileReader();
+
+            reader.onload = (theFile => {
+                return e => {
+                    if (img) {
+                        let img2 = new Image();
+                        img2.onload = () => {
+                            args.unshift(img2);
+                            self[callback](...args);
+                        }
+                        img2.src = e.target.result;
+                    } else {
+                        args.unshift(e.target.result);
+                        self[callback](...args);
+                    }
+                };
+            })(f);
+
+            if (img) { reader.readAsDataURL(f); } else { reader.readAsText(f); }
+        }, false);
+        
+        file.type = 'file';
+        file.id = 'jsonInput';
+        file.click();
+        
+        return;
     }
 };
 editor.init(document.getElementById("container"));

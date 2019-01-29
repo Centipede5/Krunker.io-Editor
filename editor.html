@@ -150,6 +150,12 @@
             background: #111;
         }
 
+		#advancedGUI {
+			position: absolute; 
+			top: 2px; 
+			left: 2px;
+		}
+
     </style>
     <script data-cfasync="false" type="text/javascript">
           var freestar = freestar || {};
@@ -164,15 +170,14 @@
     </script>
 </head>
 <body oncontextmenu="return false;">
+	<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
     <!-- AD DISPLAY -->
-    <div style="z-index:10000;position:absolute;top:20px;left:20px">
-        <div align="center" id="krunkerio_320x100_1">
-            <script data-cfasync="false" type="text/javascript">
-                freestar.queue.push(function() { googletag.display('krunkerio_320x100_1'); });
-            </script>
-        </div>
-    </div>
+    <!-- <div style="z-index:10000;position:absolute;top:20px;left:20px">
+        <a style='font-size:25px' href="https://github.com/Tehchy/Krunker.io-Map-Editor-Mod">
+            Advanced Editor <i class="material-icons" style='font-size:30px;vertical-align:bottom'>format_paint</i>
+        </a>
+    </div> -->
 
     <!-- TEST BUTTON -->
     <div id="testButton" class="bottomButton" onclick="testMap()">Test Map</div>
@@ -203,7 +208,7 @@
 
         <!-- MAP ACTIONS -->
         <div class="bottomPanel">
-            <div id="importMap" class="bottomButton">Import Map</div><div id="exportMap" class="bottomButton">Export Map</div>
+            <div id="importMap" class="bottomButton">Import Map</div><div id="exportMap" class="bottomButton">Export Map</div><div id="newMap" class="bottomButton">New Map</div>
         </div>
 
         <!-- HELP -->
@@ -238,7 +243,7 @@
 
     <!-- LOAD EDITOR SCRIPT -->
     <script src="libs/dat.gui.min.js"></script>
-    <script src="bundle.js"></script>
+    <script src="js/editor.js"></script>
 
 </body>
 </html>
