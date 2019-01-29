@@ -440,6 +440,8 @@ const editor = {
         };
         this.copy = null;
         this.groups = [];
+        this.hexToRGBArray = ((hex) => hex.match(/[A-Za-z0-9]{2}/g).map(v => parseInt(v, 16)));
+        this.rgbArrayToHex = ((rgb) => `#${rgb.map(v => v.toString(16).padStart(2, '0')).join('')}`);
 
         this.clock = new THREE.Clock();
         this.initSettings();
@@ -2049,10 +2051,15 @@ const editor = {
                     if (objs[j].s[axis1] == objs[i].s[axis1] && objs[j].s[axis2] == objs[i].s[axis2] &&
                         objs[j].p[axis1] == objs[i].p[axis1] && objs[j].p[axis2] == objs[i].p[axis2] &&
                         Math.abs(cmj - cmi) <= Math.abs(objs[j].s[axis] / 2 + objs[i].s[axis] / 2) &&
-                        ((objs[j].c || 0) === (objs[i].c || 0)) &&
-                        ((objs[j].o || 1) === (objs[i].o || 1)) &&
-                        ((objs[j].t || 0) === (objs[i].t || 0)) &&
-                        ((objs[j].e || 0x0) === (objs[i].e || 0x0))) {
+                        objs[j].c == objs[i].c &&
+                        objs[j].e == objs[i].e &&
+                        objs[j].o == objs[i].o &&
+                        objs[j].t == objs[i].t &&
+                        objs[j].col == objs[i].col &&
+                        objs[j].pe == objs[i].pe &&
+                        objs[j].hp == objs[i].hp &&
+                        objs[j].v == objs[i].v &&
+                        objs[j].a == objs[i].a) {
                         let sX = Math.abs(cmj - cmi) + Math.abs(objs[j].s[axis] / 2 + objs[i].s[axis] / 2);
                         let pX = (cmj + (objectsMerged + 1) * cmi) / (objectsMerged + 2);
                         if(axis == 1) pX = Math.min(objs[i].p[axis], objs[j].p[axis]);

@@ -1085,6 +1085,8 @@ const editor = {
         };
         this.copy = null;
         this.groups = [];
+        this.hexToRGBArray = ((hex) => hex.match(/[A-Za-z0-9]{2}/g).map(v => parseInt(v, 16)));
+        this.rgbArrayToHex = ((rgb) => `#${rgb.map(v => v.toString(16).padStart(2, '0')).join('')}`);
 
         this.clock = new THREE.Clock();
         this.initSettings();
@@ -1582,8 +1584,8 @@ const editor = {
                         this.undo = false;
                         if (!this.objChanges.length) return;
                         let last = this.objChanges.slice(-1).pop(); 
-                        if (last[1].object) this.addObject(last[1].object);
-                        if (last[0].object) this.removeObject(last[0].object);
+                        if (last[0].object) this.addObject(last[0].object);
+                        if (last[1].object) this.removeObject(last[1].object);
                         if (last.length > 2) 
                             for (let i = 2; i < last.length; i++) 
                                 this.objInstances[last[i].index][last[i].key] = last[i].value;
@@ -2694,10 +2696,15 @@ const editor = {
                     if (objs[j].s[axis1] == objs[i].s[axis1] && objs[j].s[axis2] == objs[i].s[axis2] &&
                         objs[j].p[axis1] == objs[i].p[axis1] && objs[j].p[axis2] == objs[i].p[axis2] &&
                         Math.abs(cmj - cmi) <= Math.abs(objs[j].s[axis] / 2 + objs[i].s[axis] / 2) &&
-                        ((objs[j].c || 0) === (objs[i].c || 0)) &&
-                        ((objs[j].o || 1) === (objs[i].o || 1)) &&
-                        ((objs[j].t || 0) === (objs[i].t || 0)) &&
-                        ((objs[j].e || 0x0) === (objs[i].e || 0x0))) {
+                        objs[j].c == objs[i].c &&
+                        objs[j].e == objs[i].e &&
+                        objs[j].o == objs[i].o &&
+                        objs[j].t == objs[i].t &&
+                        objs[j].col == objs[i].col &&
+                        objs[j].pe == objs[i].pe &&
+                        objs[j].hp == objs[i].hp &&
+                        objs[j].v == objs[i].v &&
+                        objs[j].a == objs[i].a) {
                         let sX = Math.abs(cmj - cmi) + Math.abs(objs[j].s[axis] / 2 + objs[i].s[axis] / 2);
                         let pX = (cmj + (objectsMerged + 1) * cmi) / (objectsMerged + 2);
                         if(axis == 1) pX = Math.min(objs[i].p[axis], objs[j].p[axis]);
@@ -2883,6 +2890,7 @@ const editor = {
     }
 };
 editor.init(document.getElementById("container"));
+
 },{"./config.js":1,"./data/prefabs.js":2,"./libs/OBJLoader.js":4,"./libs/PointerLockControls.js":5,"./libs/TransformControls.js":6,"./libs/geos.js":7,"./libs/render.js":8,"./libs/utils.js":9,"three":10}],4:[function(require,module,exports){
 
 module.exports = function(THREE) {
