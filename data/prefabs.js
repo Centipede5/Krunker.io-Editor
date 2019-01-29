@@ -357,7 +357,7 @@ module.exports.texturePrefabs = {
 module.exports.loadTexturePrefab = function(id) {
     let prefab = module.exports.texturePrefabs[id];
     if (prefab.src == "default") return;
-    return textureLoader.load("/textures/" + prefab.src + ".png", texture => {
+    return textureLoader.load("textures/" + prefab.src + ".png", texture => {
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
         texture.minFilter = prefab.filter;
