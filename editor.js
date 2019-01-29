@@ -937,8 +937,8 @@ const editor = {
                         this.undo = false;
                         if (!this.objChanges.length) return;
                         let last = this.objChanges.slice(-1).pop(); 
-                        if (last[1].object) this.addObject(last[1].object);
-                        if (last[0].object) this.removeObject(last[0].object);
+                        if (last[0].object) this.addObject(last[0].object);
+                        if (last[1].object) this.removeObject(last[1].object);
                         if (last.length > 2) 
                             for (let i = 2; i < last.length; i++) 
                                 this.objInstances[last[i].index][last[i].key] = last[i].value;
