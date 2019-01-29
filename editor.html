@@ -242,6 +242,11 @@
     </div>
 
     <!-- LOAD EDITOR SCRIPT -->
+    <script>
+        window.onbeforeunload = function() {
+            return 'You have unsaved changes!';
+        }
+    </script>
     <script src="libs/dat.gui.min.js"></script>
     <script src="js/editor.js"></script>
 
