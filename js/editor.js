@@ -99,6 +99,7 @@ module.exports.wallW = .8,
 module.exports.crateScale = 6,
 module.exports.stackScale = 6,
 module.exports.barrelScale = 4,
+module.exports.treeScale = 10,
 module.exports.vehicleScale = 20,
 module.exports.barrelMlt = 1.5,
 module.exports.ladderWidth = 3.2,
@@ -1022,6 +1023,10 @@ const editor = {
 
     // INIT:
     init(container) {
+        this.objChanges = [];
+        this.prevObject = 0;
+        this.undo = true;
+
         this.container = container;
 
         this.objInstances = [];
@@ -1465,7 +1470,7 @@ const editor = {
                     break;
                 case 81: // q
                 case 90: // z
-                    this.moveDown = true;
+                    if (!ev.ctrlKey) this.moveDown = true;
                     break;
                 case 69: // e
                 case 88: // x
@@ -1572,6 +1577,20 @@ const editor = {
                 case 70: //shift f (fix)
                     if (ev.shiftKey) this.fixHitbox();
                     break;
+                case 90:
+                    if(ev.ctrlKey) {
+                        this.undo = false;
+                        if (!this.objChanges.length) return;
+                        let last = this.objChanges.slice(-1).pop(); 
+                        if (last[1].object) this.addObject(last[1].object);
+                        if (last[0].object) this.removeObject(last[0].object);
+                        if (last.length > 2) 
+                            for (let i = 2; i < last.length; i++) 
+                                this.objInstances[last[i].index][last[i].key] = last[i].value;
+
+                        this.objChanges.splice([this.objChanges.length - 1], 1);
+                    }
+                    break;
             }
         });
 
@@ -1620,7 +1639,6 @@ const editor = {
 
     // RENDER:
     render() {
-
         // Get the delta time
         let dt = this.clock.getDelta();
 
@@ -1643,7 +1661,9 @@ const editor = {
         for (let instance of this.objInstances) {
             instance.update(dt);
         }
-
+        // UNDO
+        this.checkUndo();
+        
         // Check Group changes
         this.checkGroup();
 
@@ -1652,15 +1672,37 @@ const editor = {
         this.transformControl.update();
         requestAnimationFrame(() => this.render());
     },
+    
+    //UNDO
+    checkUndo() {
+        if (this.transformControl.object) {
+            if (this.undo && this.prevObject !== this.objConfig) {
+                let temporary = [{object: false, instance: false}, {object: false, instance: false}];
+                for (let keys in this.prevObject) {
+                    if (this.objConfig[keys] !== this.prevObject[keys]) {
+                        temporary.push({key: keys, value: this.prevObject[keys], index: this.objInstances.indexOf(this.transformControl.object.userData.owner)});
+                    }
+                    this.prevObject[keys] = this.objConfig[keys];
+                }
+                if (temporary.length > 2) this.objChanges.push(temporary);
+            }
+        }
+        this.undo = true;
+
+        this.prevObject = {...this.objConfig};
+    },
 
     // OBJECT MANAGEMENT:
     addObject(instance, multiple = false) {
         // Multiple - Use When importing large amounts of objects at once
-        
+
         // Create object
         this.scene.add(instance);
         this.objInstances.push(instance);
         updateObjectCount(this.objInstances.length);
+        
+        if(this.undo) this.objChanges.push([{object: false, instance: 0},{object: this.objInstances[this.objInstances.length - 1], instance: 0}]);
+        this.undo = false;
 
         // Add the bounding mesh
         this.scene.add(instance.boundingMesh);
@@ -1693,6 +1735,9 @@ const editor = {
 
             // Remove transform
             if (!multiple) this.hideTransform();
+            
+            if (this.undo) this.objChanges.push([{object: object, instance: instance}, {object: false, instance: instance}]);
+            this.undo = false;
         } else {
             console.log("No object to remove.");
         }
