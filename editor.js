@@ -943,7 +943,7 @@ const editor = {
                         if (this.objectSelected(true)) {
                             this.stopGrouping();
                         } else {
-                            this.copyObjects(false, true)
+                            this.copyObjects(false, true);
                         }
                     }
                     break;

@@ -452,6 +452,7 @@ module.exports.prefabs = {
     },
     CUBE: {
         defaultSize: [10, 10, 10],
+        hasHealth: true,
         scalable: true,
         editAmb: true,
         scaleWithSize: false,
@@ -853,9 +854,10 @@ class ObjectInstance extends THREE.Object3D {
         else this.texture = (config.textureIDS[data.t||0])||ObjectInstance.DEFAULT_TEXTURE;
         this.collidable = (data.col===undefined?true:false);
         this.penetrable = (data.pe?true:false);
-        this.boost = data.b || 0,
-        this.part = data.pr || 0,
-        !0 === this.boost && (this.boost = 1),
+        this.boost = data.b || 0;
+        this.health = data.hp || 0;
+        this.part = data.pr || 0;
+        !0 === this.boost && (this.boost = 1);
         this.team = (data.tm||0);
         this.visible = (data.v===undefined?true:false);
         this.terrain = data.ter||false;
@@ -967,6 +969,7 @@ class ObjectInstance extends THREE.Object3D {
         if (!this.collidable) data.col = (!this.collidable)?1:0;
         if (this.penetrable) data.pe = 1;
         if (this.boost) data.b = this.boost;
+        if (this.health) data.hp = this.health;
         if (!this.visible) data.v = 1;
 		if (this.part) data.pr = this.part;
         let rot = this.rot;
@@ -1057,6 +1060,7 @@ const editor = {
             collidable: true,
             penetrable: false,
             boost: 0,
+            health: 0,
             team: 0,
             visible: true
         };
@@ -1585,7 +1589,7 @@ const editor = {
                         if (this.objectSelected(true)) {
                             this.stopGrouping();
                         } else {
-                            this.copyObjects(false, true)
+                            this.copyObjects(false, true);
                         }
                     }
                     break;
@@ -1995,6 +1999,7 @@ const editor = {
         this.objConfig.collidable = instance.collidable;
         this.objConfig.penetrable = instance.penetrable;
         this.objConfig.boost = instance.boost;
+        this.objConfig.health = instance.health;
         this.objConfig.team = instance.team;
         this.objConfig.visible = instance.visible;
         this.objConfig.color = instance.color;
@@ -2022,6 +2027,11 @@ const editor = {
         }  if (instance.prefab.boostable) {
             o = this.objConfigGUI.add(this.objConfig, "boost").name("Boost", -10, 10, .1).onChange(c => {
                 instance.boost = c;
+            });
+            this.objConfigOptions.push(o);
+        }  if (instance.prefab.hasHealth) {
+            o = this.objConfigGUI.add(this.objConfig, "health").name("Health", 0, 500, 10).onChange(c => {
+                instance.health = c;
             });
             this.objConfigOptions.push(o);
         }  if (instance.prefab.hasParticles) {

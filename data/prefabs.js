@@ -176,6 +176,7 @@ module.exports.prefabs = {
     },
     CUBE: {
         defaultSize: [10, 10, 10],
+        hasHealth: true,
         scalable: true,
         editAmb: true,
         scaleWithSize: false,
