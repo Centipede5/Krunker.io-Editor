@@ -1470,7 +1470,7 @@ const editor = {
             
             let rotation = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Assets"].__controllers[1].getValue());
             if (fix) {
-                this.objConfigGUI.__folders["Object Config"].__controllers[1].setValue(false);
+                this.objConfigGUI.__controllers[1].setValue(false);
                 if (fix == "VEHICLE") rotation = 360 - THREE.Math.radToDeg(selected.rotation.y);
             }
              
@@ -1707,7 +1707,7 @@ const editor = {
             selected.userData.owner.emissive = 16777215;
             selected.userData.owner.opacity = 0.5;
             selected.userData.owner.color = 0;
-            this.objConfigGUI.__folders["Object Config"].__controllers[1].setValue(false);
+            this.objConfigGUI.__controllers[1].setValue(false);
             this.groups[selected.uuid] = {
                 owner: selected, 
                 pos: {x: selected.position.x, y: selected.position.y, z: selected.position.z}, 
