@@ -1579,6 +1579,16 @@ const editor = {
                 case 70: //shift f (fix)
                     if (ev.shiftKey) this.fixHitbox();
                     break;
+                case 71: //shift g (grouping)
+                    if (ev.shiftKey) { 
+                        if (ev.altKey) return this.stopGrouping(true); 
+                        if (this.objectSelected(true)) {
+                            this.stopGrouping();
+                        } else {
+                            this.copyObjects(false, true)
+                        }
+                    }
+                    break;
                 case 90:
                     if(ev.ctrlKey) {
                         this.undo = false;
@@ -2352,7 +2362,6 @@ const editor = {
             selected.userData.owner.emissive = 16777215;
             selected.userData.owner.opacity = 0.5;
             selected.userData.owner.color = 0;
-            console.log(this.objConfigGUI)
             this.objConfigGUI.__controllers[1].setValue(false);
             this.groups[selected.uuid] = {
                 owner: selected, 
