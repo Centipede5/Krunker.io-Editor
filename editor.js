@@ -270,7 +270,7 @@ class ObjectInstance extends THREE.Object3D {
         // Invert rotation for box shape
         if (this.boxShape) {
             this.boxShape.position.copy(this.boundingMesh.position);
-            this.boxShape.position.y += this.boundingMesh.scale.y / 2;
+            //this.boxShape.position.y += this.boundingMesh.scale.y / 2;
             this.boxShape.scale.copy(this.boundingMesh.scale);
             this.boxShape.rotation.copy(this.boundingMesh.rotation);
         }
@@ -371,6 +371,7 @@ ObjectInstance.boundingBoxGeometry = (() => {
     );
     return geometry;
 })();
+ObjectInstance.boundingBoxGeometry.translate(0, 0.5, 0);
 ObjectInstance.boundingCollidableBoxMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
 ObjectInstance.boundingNoncollidableBoxMaterial = new THREE.LineBasicMaterial({ color: 0x0000ff });
 
@@ -1041,7 +1042,7 @@ const editor = {
         this.checkUndo();
         
         // Check Group changes
-        this.checkGroup();
+        this.updateGroups();
 
         // Do the render
         this.renderer.render(this.scene, this.camera);
@@ -1508,12 +1509,7 @@ const editor = {
             if (autoGroup) {
                 let groupBox = this.createBoundingBox(selected.position.x, selected.position.y, selected.position.z, center[3], center[4], center[5], THREE.Math.degToRad(rotation));
                 this.addObject(groupBox);
-                this.groups[groupBox.boundingMesh.uuid] = {
-                    owner: groupBox.boundingMesh, 
-                    pos: {x: groupBox.boundingMesh.position.x , y: groupBox.boundingMesh.position.y, z: groupBox.boundingMesh.position.z}, 
-                    scale: {x: groupBox.boundingMesh.scale.x, y: groupBox.boundingMesh.scale.y, z: groupBox.boundingMesh.scale.z},
-                    objects: objectIds
-                };
+                this.createGroup(groupBox.boundingMesh, objectIds);
             }
 
             this.advancedGUI.__folders["Advanced"].__folders["Assets"].__controllers[1].setValue(0);
@@ -1727,12 +1723,7 @@ const editor = {
             selected.userData.owner.opacity = 0.5;
             selected.userData.owner.color = 0;
             this.objConfigGUI.__controllers[1].setValue(false);
-            this.groups[selected.uuid] = {
-                owner: selected, 
-                pos: {x: selected.position.x, y: selected.position.y, z: selected.position.z}, 
-                scale: {x: selected.scale.x, y: selected.scale.y, z: selected.scale.z},
-                objects: intersect
-            };
+            this.createGroup(selected, intersect);
         }
     },
     exportObjects(full = false) {
@@ -1763,6 +1754,15 @@ const editor = {
         if (!this.copy) return alert('Please copy objects first');
         if (!this.objectSelected()) return alert('Select a object you would like to replace with your copied objects');
         this.replaceObject(this.copy);
+    },
+    createGroup(selected, objects) {
+        this.groups[selected.uuid] = {
+            owner: selected, 
+            pos: {...selected.position}, 
+            scale: {...selected.scale},
+            rotY: selected.y,
+            objects: objects
+        };
     },
     removeGroup() {
         if (Object.keys(this.groups).length == 0) return;
@@ -1805,41 +1805,43 @@ const editor = {
         this.addObject(groupBox);
         
         selected = this.objectSelected();
-        this.groups[selected.uuid] = {
-            owner: selected, 
-            pos: {x: selected.position.x, y: selected.position.y, z: selected.position.z},
-            scale: {x: selected.scale.x, y: selected.scale.y, z: selected.scale.z},
-            objects: newObs
-        };
+        this.createGroup(selected, newOb);
     },
-    checkGroup() {
+    updateGroups() {
         if (Object.keys(this.groups).length == 0) return;
         
         for (let uuid in this.groups) {
             let group = this.groups[uuid];
-            
-            //Position Change Check
+
+            // Position Change Check
             let currPos = group.owner.position,
-                oldPos = group.pos,
-                diffPos = [currPos.x - oldPos.x, currPos.y - oldPos.y, currPos.z - oldPos.z],
+                prevPos = group.pos,
+                diffPos = [currPos.x - prevPos.x, currPos.y - prevPos.y, currPos.z - prevPos.z],
                 changedPos = !(diffPos[0] === 0 && diffPos[1] === 0 && diffPos[2] === 0);
-            
-            //Scale Change Check
+
+            // Scale Change Check
             let currScale = group.owner.scale,
-                oldScale = group.scale,
-                diffScale = [(currScale.x / oldScale.x) , (currScale.y  / oldScale.y), (currScale.z / oldScale.z)],
+                prevScale = group.scale,
+                diffScale = [(currScale.x / prevScale.x), (currScale.y / prevScale.y), (currScale.z / prevScale.z)],
                 changedScale = !(diffScale[0] === 1 && diffScale[1] === 1 && diffScale[2] === 1);
-                
-            if (!changedPos && !changedScale) continue; // no changes
-            
+
+            //Full Rotation Change Check
+            let currRot = group.owner.rotation,
+                prevRot = group.rotY,
+                diffRot = currRot.y - prevRot,
+                changedRot = Math.abs(diffRot[0]) != 0;
+
+            if (!changedPos && !changedScale && !changedRot) continue; // no changes
             let obs = this.objInstances.filter(ob => group.objects.includes(ob.boundingMesh.uuid));
 
             for (let ob of obs) {
-                if (changedScale) {
+                if (changedRot) {
+                    this.rotateAboutPoint(ob.boundingMesh, currPos, new THREE.Vector3(0, 1, 0), diffRot, true);
+                } else if (changedScale) {
                     ob.boundingMesh.position.x *= diffScale[0];
                     ob.boundingMesh.position.y *= diffScale[1];
                     ob.boundingMesh.position.z *= diffScale[2];
-                    
+
                     ob.boundingMesh.scale.x *= diffScale[0];
                     ob.boundingMesh.scale.y *= diffScale[1];
                     ob.boundingMesh.scale.z *= diffScale[2];
@@ -1849,9 +1851,10 @@ const editor = {
                     ob.boundingMesh.position.z += diffPos[2];
                 }
             }
-            
-            this.groups[group.owner.uuid].pos = {x: currPos.x, y: currPos.y, z: currPos.z};
-            this.groups[group.owner.uuid].scale = {x: currScale.x, y: currScale.y, z: currScale.z};
+
+            this.groups[group.owner.uuid].pos = {...currPos};
+            this.groups[group.owner.uuid].scale = {...currScale};
+            this.groups[group.owner.uuid].rotY = currRot.y;
         }
     },
     stopGrouping(all = false) {
@@ -2149,7 +2152,7 @@ const editor = {
             }
         }
         //return objects;
-        this.replaceObject(JSON.stringify(objects), true);
+        this.replaceObject(JSON.stringify(objects), true, false, true);
     },
     frameObject() {
         let selected = this.objectSelected();
@@ -2208,6 +2211,19 @@ const editor = {
     },
     degToRad(r) {
         return this.settings.degToRad ? [r[0] * (Math.PI / 180), r[1] * (Math.PI / 180), r[2] * (Math.PI / 180)] : r;
+    },
+    rotateAboutPoint(obj, point, axis, theta, pointIsWorld) {
+        pointIsWorld = (pointIsWorld === undefined)? false : pointIsWorld;
+      
+        if(pointIsWorld) obj.parent.localToWorld(obj.position); // compensate for world coordinate
+      
+        obj.position.sub(point); // remove the offset
+        obj.position.applyAxisAngle(axis, theta); // rotate the POSITION
+        obj.position.add(point); // re-add the offset
+      
+        if(pointIsWorld) obj.parent.worldToLocal(obj.position); // undo world coordinates compensation
+      
+        obj.rotateOnAxis(axis, theta); // rotate the OBJECT
     },
     intersect(a, b) {
         return (a.minX <= b.maxX && a.maxX >= b.minX) &&
