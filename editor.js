@@ -1753,14 +1753,14 @@ const editor = {
     pasteObjects() {
         if (!this.copy) return alert('Please copy objects first');
         if (!this.objectSelected()) return alert('Select a object you would like to replace with your copied objects');
-        this.replaceObject(this.copy);
+        this.replaceObject(this.copy, true);
     },
-    createGroup(selected, objects) {
-        this.groups[selected.uuid] = {
-            owner: selected, 
-            pos: {...selected.position}, 
-            scale: {...selected.scale},
-            rotY: selected.y,
+    createGroup(owner, objects) {
+        this.groups[owner.uuid] = {
+            owner: owner, 
+            pos: {...owner.position}, 
+            scale: {...owner.scale},
+            rotY: owner.rotation.y,
             objects: objects
         };
     },
@@ -1805,7 +1805,7 @@ const editor = {
         this.addObject(groupBox);
         
         selected = this.objectSelected();
-        this.createGroup(selected, newOb);
+        this.createGroup(selected, newObs);
     },
     updateGroups() {
         if (Object.keys(this.groups).length == 0) return;
@@ -1825,11 +1825,11 @@ const editor = {
                 diffScale = [(currScale.x / prevScale.x), (currScale.y / prevScale.y), (currScale.z / prevScale.z)],
                 changedScale = !(diffScale[0] === 1 && diffScale[1] === 1 && diffScale[2] === 1);
 
-            //Full Rotation Change Check
+            //Y Rotation Change Check
             let currRot = group.owner.rotation,
                 prevRot = group.rotY,
                 diffRot = currRot.y - prevRot,
-                changedRot = Math.abs(diffRot[0]) != 0;
+                changedRot = !(diffRot == 0);
 
             if (!changedPos && !changedScale && !changedRot) continue; // no changes
             let obs = this.objInstances.filter(ob => group.objects.includes(ob.boundingMesh.uuid));
@@ -1837,7 +1837,8 @@ const editor = {
             for (let ob of obs) {
                 if (changedRot) {
                     this.rotateAboutPoint(ob.boundingMesh, currPos, new THREE.Vector3(0, 1, 0), diffRot, true);
-                } else if (changedScale) {
+                }
+                if (changedScale) {
                     ob.boundingMesh.position.x *= diffScale[0];
                     ob.boundingMesh.position.y *= diffScale[1];
                     ob.boundingMesh.position.z *= diffScale[2];
@@ -1845,7 +1846,8 @@ const editor = {
                     ob.boundingMesh.scale.x *= diffScale[0];
                     ob.boundingMesh.scale.y *= diffScale[1];
                     ob.boundingMesh.scale.z *= diffScale[2];
-                } else {
+                }
+                if (changedPos) {
                     ob.boundingMesh.position.x += diffPos[0];
                     ob.boundingMesh.position.y += diffPos[1];
                     ob.boundingMesh.position.z += diffPos[2];
@@ -2007,7 +2009,7 @@ const editor = {
         for (let voxel of vlist)  mapout.objects.push(this.voxelToObject(voxel));
          
         if (this.settings.mergeVoxels) mapout.objects = this.mergeObjects(mapout.objects);
-        if (insert) this.replaceObject(JSON.stringify(mapout.objects));
+        if (insert) this.replaceObject(JSON.stringify(mapout.objects), true);
         if (!insert) this.download(JSON.stringify(mapout), 'convertedVoxels.txt', 'text/plain');
     },
     convertImage(img, insert = false) {
@@ -2049,7 +2051,7 @@ const editor = {
         }
         let map = {"name":"New Krunker Map","modURL":"","ambient":9937064,"light":15923452,"sky":14477549,"fog":9280160,"fogD":900,"camPos":[0,0,0],"spawns":[],"objects":[]};
         map.objects = objects;
-        if (insert) this.replaceObject(JSON.stringify(map.objects));
+        if (insert) this.replaceObject(JSON.stringify(map.objects), true);
         if (!insert) this.download(JSON.stringify(map), 'convertedImage.txt', 'text/plain');
     },
     convert(insert = false, img = false) {
