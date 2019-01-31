@@ -1312,7 +1312,7 @@ const editor = {
         imageMenu.add(options, "imageImport").name("Import"); 
         
         let breakableMenu = otherMenu.addFolder('Breakable Map');
-        breakableMenu.add(options, "breakableHealth", 1, 0, 1000).name("Health");
+        breakableMenu.add(options, "breakableHealth", 1, 500, 1).name("Health");
         breakableMenu.add(options, "breakableCollision").name("Force Collision");
         breakableMenu.add(options, "breakableMap").name("Execute");
         
@@ -2025,12 +2025,12 @@ const editor = {
             });
             this.objConfigOptions.push(o);
         }  if (instance.prefab.boostable) {
-            o = this.objConfigGUI.add(this.objConfig, "boost").name("Boost", -10, 10, .1).onChange(c => {
+            o = this.objConfigGUI.add(this.objConfig, "boost", -10, 10, .1).name("Boost").onChange(c => {
                 instance.boost = c;
             });
             this.objConfigOptions.push(o);
         }  if (instance.prefab.hasHealth) {
-            o = this.objConfigGUI.add(this.objConfig, "health").name("Health", 0, 500, 10).onChange(c => {
+            o = this.objConfigGUI.add(this.objConfig, "health", 0, 500, 10).name("Health").onChange(c => {
                 instance.health = c;
             });
             this.objConfigOptions.push(o);
