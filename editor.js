@@ -443,7 +443,7 @@ const editor = {
             assetAutoGroup: false,
         };
         this.copy = null;
-        this.groups = [];
+        this.objGroups = [];
         this.hexToRGBArray = ((hex) => hex.match(/[A-Za-z0-9]{2}/g).map(v => parseInt(v, 16)));
         this.rgbArrayToHex = ((rgb) => `#${rgb.map(v => v.toString(16).padStart(2, '0')).join('')}`);
 
@@ -548,10 +548,10 @@ const editor = {
             file: (() => this.jsonInput(true)),
             textGen: (() => this.textToObjects()),
             create: (() => this.copyObjects(false, true)),
-            stop: (() => this.stopGrouping()),
-            stopAll: (() => this.stopGrouping(true)),
-            exportObj: (() => this.exportObjects()),
-            exportFull: (() => this.exportObjects(true)),
+            stop: (() => this.stopGroup()),
+            stopAll: (() => this.stopGroup(true)),
+            exportObj: (() => this.exportGroup()),
+            exportFull: (() => this.exportGroup(true)),
             copy: (() => this.copyObjects()),
             cut: (() => this.copyObjects(true)),
             paste: (() => this.pasteObjects()),
@@ -940,9 +940,9 @@ const editor = {
                     break;
                 case 71: //shift g (grouping)
                     if (ev.shiftKey) { 
-                        if (ev.altKey) return this.stopGrouping(true); 
+                        if (ev.altKey) return this.stopGroup(true); 
                         if (this.objectSelected(true)) {
-                            this.stopGrouping();
+                            this.stopGroup();
                         } else {
                             this.copyObjects(false, true);
                         }
@@ -1484,18 +1484,17 @@ const editor = {
         }
         if (selected) {
             if (!fix) this.removeObject();
-            
+
             let jsp = JSON.parse(str);
             jsp = jsp.objects ? jsp.objects : (jsp.states || jsp.id ? jsp.map.objects : jsp);
-            
+
             let rotation = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Assets"].__controllers[1].getValue());
+            let yAxis = new THREE.Vector3(0, 1, 0);
             if (fix) {
                 this.objConfigGUI.__controllers[1].setValue(false);
                 if (fix == "VEHICLE") rotation = 360 - THREE.Math.radToDeg(selected.rotation.y);
             }
-             
-            if (rotation > 0) jsp = this.rotateObjects(jsp, rotation);
-            
+
             let objectIds = [];
             let center = this.findCenter(jsp);
             for (let ob of jsp) {
@@ -1503,6 +1502,7 @@ const editor = {
                 ob.p[1] += selected.userData.owner.position.y - (selected.scale.y / 2) - center[1];
                 ob.p[2] += selected.userData.owner.position.z - center[2] - (fix == "VEHICLE" ? 0.5 : 0);
                 let obj = ObjectInstance.deserialize(ob);
+                if (rotation > 0) this.rotateAroundPoint(obj.boundingMesh, selected.position, yAxis, THREE.Math.degToRad(rotation));
                 if (autoGroup) objectIds.push(obj.boundingMesh.uuid);
                 this.addObject(obj, skip);
             }
@@ -1520,65 +1520,6 @@ const editor = {
     createBoundingBox(x, y, z, sX, sY, sZ, rY) {
         let obph = {p: [x, y, z], s: [sX + 1, sY + 1, sZ + 1], r: [0, rY, 0], e: this.settings.phEmissive, o: this.settings.phOpacity, c: this.settings.phColor, col: 1};
         return ObjectInstance.deserialize(obph);
-    },
-    rotateObjects(jsp, deg) {
-        //Credit JustProb
-        switch (deg) {
-            case 90: return this.changeAngle(jsp);
-            case 180: return this.reflectAngle(jsp);
-            case 270: return this.reflectAngle(this.changeAngle(jsp));
-            default: return this.rotate3D(jsp, deg);
-        }
-        return jsp;
-    },
-    rotate3D(jsp, deg) {
-        //Credit JustProb
-        deg = THREE.Math.degToRad(deg - 180);
-
-        for (let ob of jsp) {
-            if (ob.id == 4) {
-                alert('Sorry we cant rotate planes (Ramps)');
-                return jsp;
-            }
-            let dist = Math.sqrt(ob.p[0] * ob.p[0] + ob.p[2] * ob.p[2]);
-            let angle = this.getAngle(ob);
-            ob.p[0] = -1 * Math.cos(-angle + deg) * dist;
-            ob.p[2] = Math.sin(angle - deg) * dist;
-            if (ob.r == undefined) ob.r = [0,0,0];
-            ob.r[1] = THREE.Math.degToRad(360 - THREE.Math.radToDeg(deg)) + ob.r[1];
-        }
-
-        return jsp;
-    },
-    getAngle(ob, live = false) {
-        //Credit JustProb
-        let x = live ? ob.x : ob.p[0],
-            z = live ? ob.z : ob.p[2],
-            angle =  Math.atan2(-1 * z, x);
-        return angle < 0 ? angle + (Math.PI * 2) : angle;
-    } ,
-    changeAngle(jsp){
-        //Credit JustProb
-        for (let ob of jsp) {
-            let x = ob.s[0],
-                y = ob.s[2];
-            ob.s[0] = y;
-            ob.s[2] = x;
-            let a = ob.p[0],
-                b = ob.p[2];
-            ob.p[0] = b;
-            ob.p[2] = a;
-        }
-        
-        return jsp;
-    },
-    reflectAngle(jsp){
-        //Credit JustProb
-        for (let ob of jsp) {
-            ob.p[0] = -1 * ob.p[0];
-            ob.p[2] = -1 * ob.p[2];
-        }
-        return jsp;
     },
     findCenter(jsp) {
         let yMin = jsp[0].p[1],
@@ -1607,7 +1548,6 @@ const editor = {
         zMin = jsp[0].position.z - (jsp[0].scale.z / 2),
         zMax = jsp[0].position.z + (jsp[0].scale.z / 2);
 
-
         for (let ob of jsp) {
             if (ob.pos[1]  < yMin) yMin = ob.pos[1];
             if (ob.pos[0] - (ob.size[0] / 2) < xMin) xMin = ob.pos[0] - (ob.size[0] / 2);
@@ -1635,40 +1575,40 @@ const editor = {
         for (let ob of obs) {
             ob.p[dir] * -1;
             ob.p[dir] += 2 * (reference[dir] - ob.p[dir]);
-            
+
             if ('d' in ob) {
                 if ((dir == 0 && (ob.d == 0 || ob.d == 2)) || (dir == 2 && (ob.d == 1 || ob.d == 3))) ob.d = Math.abs(dir + 2 - ob.d);
             }
         }
-            
+
         if ('spawns' in jsp) {
             for (let spwn of jsp.spawns) {
                 spwn[dir] * -1;
                 spwn[dir] += 2 * (reference[dir] - spwn[dir]);
             }
         }
-        
+
         if ('camPos' in jsp) {
             jsp.camPos[dir] * -1;
             jsp.camPos[dir] += 2 * (reference[dir] - jsp.camPos[dir]);
         }
-        
+
         this.download(JSON.stringify(jsp), 'reflect.txt', 'text/plain');
         return jsp;
     },
     reflectMap() {
         if (this.settings.backupMap) this.exportMap();
-        
+
         let dir = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Reflect Map"].__controllers[0].getValue()),
         reference = this.findMapCenter();
-            
+
         for (let ob of this.objInstances) {
             let pos = ob.pos;
-            
+
             pos[dir] * -1;
             pos[dir] += 2 * (reference[dir] - pos[dir]);
             ob.pos = pos;
-            
+
             if (ob.direction != null) {
                 if ((dir == 0 && (ob.direction == 0 || ob.direction == 2)) || (dir == 2 && (ob.direction == 1 || ob.direction == 3))) ob.direction = Math.abs(dir + 2 - ob.direction);
             }
@@ -1679,8 +1619,8 @@ const editor = {
     copyObjects(cut = false, group = false, ret = false) {
         let selected = this.objectSelected();
         if (!selected) return alert('Stretch a cube over your objects then try again');
-        if (group && this.groups && Object.keys(this.groups).includes(selected.uuid)) return alert('You cant combine groups');
-        
+        if (group && this.objGroups && Object.keys(this.objGroups).includes(selected.uuid)) return alert('You cant combine groups');
+
         let pos = {
             minX: selected.position.x - (selected.scale.x / 2), 
             minY: selected.position.y, 
@@ -1705,14 +1645,14 @@ const editor = {
                 intersect.push(group ? ob.boundingMesh.uuid : ob.serialize());
             }
         }
-        
+
         if (!group) {
             if (cut && obbys.length && !group) {
                 for (let i = 0; i < obbys.length; i++) {
                     this.removeObject(obbys[i]);
                 }
             }
-            
+
             if (ret) {
                 return intersect;
             } else {
@@ -1726,14 +1666,14 @@ const editor = {
             this.createGroup(selected, intersect);
         }
     },
-    exportObjects(full = false) {
+    exportGroup(full = false) {
         let obs = this.copyObjects(false, false, true);
         if (obs.length == 0) return alert('There was nothing to save');
         let nme = prompt("Name your asset", "");
         if (nme == null || nme == "") return alert('Please name your asset');
-            
+
         obs = this.applyCenter(obs);
-    
+
         if (full) 
             obs = {
                 "name": "asset_" + nme.replace(/ /g,"_"),
@@ -1756,7 +1696,7 @@ const editor = {
         this.replaceObject(this.copy, true);
     },
     createGroup(owner, objects) {
-        this.groups[owner.uuid] = {
+        this.objGroups[owner.uuid] = {
             owner: owner, 
             pos: {...owner.position}, 
             scale: {...owner.scale},
@@ -1765,53 +1705,47 @@ const editor = {
         };
     },
     removeGroup() {
-        if (Object.keys(this.groups).length == 0) return;
-        
+        if (Object.keys(this.objGroups).length == 0) return;
+
         let selected = this.objectSelected(true);
         if (!selected) return;
-        
+
         let remOb = [];
-        
-        this.groups[selected.uuid].objects.push(selected.uuid);
-        let obs = this.objInstances.filter(ob => this.groups[selected.uuid].objects.includes(ob.boundingMesh.uuid));
-       /* for (let i = 0; i < this.objInstances.length; i++) {
-            if (!this.groups[selected.uuid].objects.includes(this.objInstances[i].boundingMesh.uuid)) continue
-            
-                remOb.push(this.objInstances[i])
-        }*/
-            
+
+        this.objGroups[selected.uuid].objects.push(selected.uuid);
+        let obs = this.objInstances.filter(ob => this.objGroups[selected.uuid].objects.includes(ob.boundingMesh.uuid));
         for (let i = 0; i < obs.length; i++);
             this.removeObject(obs[i]);
-        
-        delete this.groups[selected.uuid];
+
+        delete this.objGroups[selected.uuid];
     },
     duplicateGroup() {
-        if (Object.keys(this.groups).length == 0) return;
+        if (Object.keys(this.objGroups).length == 0) return;
 
         let selected = this.objectSelected(true);
         if (!selected) return alert('You cant duplicate a group that doesnt exist');
-            
-        let group = this.groups[selected.uuid];
+
+        let group = this.objGroups[selected.uuid];
         let obs = this.objInstances.filter(ob => group.objects.includes(ob.boundingMesh.uuid));
         let newObs = [];
-        
+
         for (let ob of obs) {
             let newOb = ObjectInstance.deserialize(ob.serialize());
             newObs.push(newOb.boundingMesh.uuid);
             this.addObject(newOb);
         }
-        
+
         let groupBox = ObjectInstance.deserialize(selected.userData.owner.serialize());
         this.addObject(groupBox);
-        
+
         selected = this.objectSelected();
         this.createGroup(selected, newObs);
     },
     updateGroups() {
-        if (Object.keys(this.groups).length == 0) return;
-        
-        for (let uuid in this.groups) {
-            let group = this.groups[uuid];
+        if (Object.keys(this.objGroups).length == 0) return;
+
+        for (let uuid in this.objGroups) {
+            let group = this.objGroups[uuid];
 
             // Position Change Check
             let currPos = group.owner.position,
@@ -1836,7 +1770,7 @@ const editor = {
 
             for (let ob of obs) {
                 if (changedRot) {
-                    this.rotateAboutPoint(ob.boundingMesh, currPos, new THREE.Vector3(0, 1, 0), diffRot, true);
+                    this.rotateAroundPoint(ob.boundingMesh, currPos, new THREE.Vector3(0, 1, 0), diffRot, true);
                 }
                 if (changedScale) {
                     ob.boundingMesh.position.x *= diffScale[0];
@@ -1854,33 +1788,33 @@ const editor = {
                 }
             }
 
-            this.groups[group.owner.uuid].pos = {...currPos};
-            this.groups[group.owner.uuid].scale = {...currScale};
-            this.groups[group.owner.uuid].rotY = currRot.y;
+            this.objGroups[group.owner.uuid].pos = {...currPos};
+            this.objGroups[group.owner.uuid].scale = {...currScale};
+            this.objGroups[group.owner.uuid].rotY = currRot.y;
         }
     },
-    stopGrouping(all = false) {
-        if (Object.keys(this.groups).length == 0) return alert('You cant stop a group that doesnt exist');
-            
+    stopGroup(all = false) {
+        if (Object.keys(this.objGroups).length == 0) return alert('You cant stop a group that doesnt exist');
+
         if (all) {
-            let obs = this.objInstances.filter(ob => Object.keys(this.groups).includes(ob.boundingMesh.uuid));
+            let obs = this.objInstances.filter(ob => Object.keys(this.objGroups).includes(ob.boundingMesh.uuid));
             for (let ob of obs) {
                 this.removeObject(ob);
             }
-            this.groups = [];
+            this.objGroups = [];
         } else {
             let selected = this.objectSelected(true);
             if (!selected) return alert('You cant stop a group that doesnt exist');
-            
-            delete this.groups[selected.uuid];
+
+            delete this.objGroups[selected.uuid];
             return this.removeObject(selected.userData.owner);
         }
     },
     editGroup(change = 'texture', val = null) {
-        if (Object.keys(this.groups).length == 0) return alert('You cant edit a group that doesnt exist');
+        if (Object.keys(this.objGroups).length == 0) return alert('You cant edit a group that doesnt exist');
         let selected = this.objectSelected(true);
         if (!selected) return alert('You cant edit a group that doesnt exist');
-        let group = this.groups[selected.uuid];
+        let group = this.objGroups[selected.uuid];
         let obs = this.objInstances.filter(ob => group.objects.includes(ob.boundingMesh.uuid));
         switch (change) {
             case 'texture': for (let ob of obs) ob.texture = val; break;
@@ -1906,9 +1840,7 @@ const editor = {
     },
     colorizeMap(input = false, gold = false, rand = false) {
         if (this.settings.backupMap) this.exportMap();
-        
         if (input != false && (input == null || input == "")) return alert("Please input colors (ex: #000000,#ffffff)");
-            
         if (input) input = input.trim().split(',');
 
         for (let ob of this.objInstances) {
@@ -1926,14 +1858,14 @@ const editor = {
     },
     scaleMap() {
         if (this.settings.backupMap) this.exportMap();
-            
+
         let sX = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Scale Map"].__controllers[0].getValue(),
             sY = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Scale Map"].__controllers[1].getValue(),
             sZ = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Scale Map"].__controllers[2].getValue();
-            
+
         for (let ob of this.objInstances) {
             let pos = ob.pos, size = ob.size;
-            
+
             pos[0] *= sX;
             pos[1] *= sY;
             pos[2] *= sZ;
@@ -1941,7 +1873,7 @@ const editor = {
             size[0] *= sX;
             size[1] *= sY;
             size[2] *= sZ;
-            
+
             ob.size = size;
             ob.pos = pos;
         }
@@ -2005,9 +1937,8 @@ const editor = {
         let voxels = JSON.parse(str);
         let mapout = {"name":"modmap","modURL":"","ambient":9937064,"light":15923452,"sky":14477549,"fog":9280160,"fogD":900,"camPos":[0,0,0],"spawns":[],"objects":[]};
         let vlist = [];
-        for (let vx of voxels.voxels) vlist.push([parseInt(vx.x), parseInt(vx.y), parseInt(vx.z)]);
-        for (let voxel of vlist)  mapout.objects.push(this.voxelToObject(voxel));
-         
+        for (let vx of voxels.voxels) mapout.objects.push(this.voxelToObject([parseInt(vx.x), parseInt(vx.y), parseInt(vx.z)]));
+
         if (this.settings.mergeVoxels) mapout.objects = this.mergeObjects(mapout.objects);
         if (insert) this.replaceObject(JSON.stringify(mapout.objects), true);
         if (!insert) this.download(JSON.stringify(mapout), 'convertedVoxels.txt', 'text/plain');
@@ -2168,19 +2099,19 @@ const editor = {
         let size = selected.scale;
         let cN = {p:[pos.x, pos.y, pos.z - (size.z / 2) - (thickness / 2)], s:[size.x + (thickness * 2), size.y, thickness]};
         this.addObject(ObjectInstance.deserialize(cN), true);
-        
+
         let cS = {p:[pos.x, pos.y, pos.z + (size.z / 2) + (thickness / 2)], s:[size.x + (thickness * 2), size.y, thickness]};
         this.addObject(ObjectInstance.deserialize(cS), true);
-        
+
         let cW = {p:[pos.x - (size.x / 2) - (thickness / 2), pos.y, pos.z], s:[thickness, size.y, size.z]};
         this.addObject(ObjectInstance.deserialize(cW), true);
-        
+
         let cE = {p:[pos.x + (size.x / 2) + (thickness / 2), pos.y, pos.z], s:[thickness, size.y, size.z]};
         this.addObject(ObjectInstance.deserialize(cE), true);
-        
+
         let cT = {p:[pos.x, pos.y + size.y, pos.z], s:[size.x + (thickness * 2), thickness, size.z + (thickness * 2)]};
         if (ceiling) this.addObject(ObjectInstance.deserialize(cT), true);
-        
+
         let cB = {p:[pos.x, pos.y - thickness, pos.z], s:[size.x + (thickness * 2), thickness, size.z + (thickness * 2)]};
         if (floor) this.addObject(ObjectInstance.deserialize(cB), true);
 
@@ -2191,7 +2122,7 @@ const editor = {
     },
     objectSelected(group = false) {
         let selected = this.transformControl.object;
-        return selected ? (group ? (Object.keys(this.groups).includes(selected.uuid) ? selected : false) : selected) : false;
+        return selected ? (group ? (Object.keys(this.objGroups).includes(selected.uuid) ? selected : false) : selected) : false;
     },
     jsonInput(fromfile = false) {
         if (fromfile) {
@@ -2214,17 +2145,17 @@ const editor = {
     degToRad(r) {
         return this.settings.degToRad ? [r[0] * (Math.PI / 180), r[1] * (Math.PI / 180), r[2] * (Math.PI / 180)] : r;
     },
-    rotateAboutPoint(obj, point, axis, theta, pointIsWorld) {
+    rotateAroundPoint(obj, point, axis, theta, pointIsWorld) {
         pointIsWorld = (pointIsWorld === undefined)? false : pointIsWorld;
-      
+
         if(pointIsWorld) obj.parent.localToWorld(obj.position); // compensate for world coordinate
-      
+
         obj.position.sub(point); // remove the offset
         obj.position.applyAxisAngle(axis, theta); // rotate the POSITION
         obj.position.add(point); // re-add the offset
-      
+
         if(pointIsWorld) obj.parent.worldToLocal(obj.position); // undo world coordinates compensation
-      
+
         obj.rotateOnAxis(axis, theta); // rotate the OBJECT
     },
     intersect(a, b) {
@@ -2254,7 +2185,7 @@ const editor = {
         let file = document.createElement('input');
         file.type = 'file';
         file.id = 'jsonInput';
-        
+
         let self = this;
         file.addEventListener('change', ev => {
             if (ev.target.files.length != 1) return alert('Please select 1 file');
@@ -2279,11 +2210,11 @@ const editor = {
 
             if (img) { reader.readAsDataURL(f); } else { reader.readAsText(f); }
         }, false);
-        
+
         file.type = 'file';
         file.id = 'jsonInput';
         file.click();
-        
+
         return;
     }
 };
