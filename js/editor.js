@@ -23,6 +23,13 @@ module.exports.serverConfig = [{
         min: 1,
         step: 1
     }, {
+        name: "Lives",
+        varN: "lives",
+        def: 0,
+        max: 10,
+        min: 0,
+        step: 1
+    }, {
         name: "Minutes",
         varN: "gameTime",
         def: 4,
@@ -79,8 +86,8 @@ module.exports.serverConfig = [{
         bool: !0
     }
 ],
-module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "WATER"],
-module.exports.textureIDS = ["WALL", "DIRT", "FLOOR", "GRID", "GREY", "DEFAULT", "ROOF", "FLAG"],
+module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE"],
+module.exports.textureIDS = ["WALL", "DIRT", "FLOOR", "GRID", "GREY", "DEFAULT", "ROOF", "FLAG", "GRASS", "CHECK"],
 module.exports.objectLimit = 3500,
 module.exports.objectLimitF = 6e3,
 module.exports.spawnLimit = 20,
@@ -113,7 +120,7 @@ module.exports.chatInterval = 800,
 module.exports.voiceChatInterval = 2e3,
 module.exports.voiceChatMaxLength = 5,
 module.exports.movDirs = [];
-for (var n = 0; n < 8; ++n)
+for (var n = 0; 8 > n; ++n)
     module.exports.movDirs.push(-Math.PI + (n + 1) * Math.PI / 4);
 module.exports.interpolation = 1.1,
 module.exports.stateHistory = 1e3,
@@ -212,7 +219,7 @@ module.exports.feedTimer = 1500,
 module.exports.spinTimer = 1800,
 module.exports.endStats = ["sid", "name", "score", "kills", "deaths", "reward"],
 module.exports.endForm = {
-    reward: function (t, e, n) {
+    reward: function (t) {
         return t + "KR"
     },
     time: function (t, e, n) {
@@ -267,10 +274,10 @@ module.exports.leaderCal = {
         var e = t / 1e3 / 60,
         n = parseInt(e % 60);
         e /= 60;
-        var r = parseInt(e % 24);
+        var i = parseInt(e % 24);
         e /= 24;
-        var i = parseInt(e);
-        return (i ? i + "d " : "") + (r ? r + "h " : "") + (n || 0) + "m "
+        var r = parseInt(e);
+        return (r ? r + "d " : "") + (i ? i + "h " : "") + (n || 0) + "m "
     }
 }
 },{}],2:[function(require,module,exports){
