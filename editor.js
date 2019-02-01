@@ -927,7 +927,7 @@ const editor = {
                     this.createPlaceholder();
                     break;
                 case 82: // r
-                    if (ev.ctrlKey) this.duplicateObject();
+                    if (ev.shiftKey) this.duplicateObject();
                     break;
                 case 67: //ctrl c
                     if (ev.ctrlKey) this.copyObjects();
@@ -1511,7 +1511,7 @@ const editor = {
                 this.addObject(groupBox);
                 this.createGroup(groupBox.boundingMesh, objectIds);
             }
-
+            if (skip && !autoGroup) this.hideTransform();
             this.advancedGUI.__folders["Advanced"].__folders["Assets"].__controllers[1].setValue(0);
         } else {
             alert("You must select a object first");
