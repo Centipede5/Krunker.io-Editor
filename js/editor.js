@@ -410,6 +410,7 @@ function generateRamp(x, y, z) {
 // PREFABS:
 module.exports.prefabs = {
     CRATE: {
+        defaultSize: [6, 6, 6],
         dontRound: true,
         gen: parent => loadObj(parent, "models/crate_0.obj", "textures/crate_0.png", config.crateScale),
         dummy: false,
@@ -417,6 +418,7 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     STACK: {
+        defaultSize: [6, 6, 6],
         dontRound: true,
         gen: parent => loadObj(parent, "models/stack_0.obj", "textures/stack_0.png", config.crateScale),
         dummy: false,
@@ -953,7 +955,7 @@ class ObjectInstance extends THREE.Object3D {
         }
 
         // Reset scale if not scalable
-//if (!this.prefab.scalable) this.size = this.defaultSize;
+        if (!this.prefab.scalable) this.size = this.defaultSize; //this is reason 
     }
 
     clone() {
