@@ -312,10 +312,10 @@ function loadObj(parent, src, textureSrc, scale) {
                     if (child instanceof THREE.Mesh) {
                         if (child.geometry.isBufferGeometry) {
                             tmpGeometry.fromBufferGeometry(child.geometry);
-                            tmpGeometry.computeFlatVertexNormals();
+                           // tmpGeometry.computeFlatVertexNormals();
                             child.geometry.fromGeometry(tmpGeometry);
                         } else {
-                            child.geometry.computeFlatVertexNormals();
+                            //child.geometry.computeFlatVertexNormals();
                         }
                         child.material = material;
                     }
