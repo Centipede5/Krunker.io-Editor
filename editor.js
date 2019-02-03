@@ -300,7 +300,7 @@ class ObjectInstance extends THREE.Object3D {
         }
 
         // Reset scale if not scalable
-        if (!this.prefab.scalable) this.size = this.defaultSize;
+//if (!this.prefab.scalable) this.size = this.defaultSize;
     }
 
     clone() {

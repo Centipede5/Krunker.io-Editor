@@ -107,7 +107,7 @@ module.exports.crateScale = 6,
 module.exports.stackScale = 6,
 module.exports.barrelScale = 4,
 module.exports.treeScale = 10,
-module.exports.vehicleScale = 10,
+module.exports.vehicleScale = 20,
 module.exports.barrelMlt = 1.5,
 module.exports.ladderWidth = 3.2,
 module.exports.ladderScale = .5,
@@ -953,7 +953,7 @@ class ObjectInstance extends THREE.Object3D {
         }
 
         // Reset scale if not scalable
-        if (!this.prefab.scalable) this.size = this.defaultSize;
+//if (!this.prefab.scalable) this.size = this.defaultSize;
     }
 
     clone() {
