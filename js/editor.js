@@ -281,6 +281,8 @@ module.exports.leaderCal = {
     }
 }
 },{}],2:[function(require,module,exports){
+
+},{}],3:[function(require,module,exports){
 let THREE = require("three"); // To silence the warning
 
 // IMPORTS:
@@ -655,7 +657,7 @@ module.exports.loadTexturePrefab = function(id) {
     });
 };
 
-},{"../config.js":1,"../libs/geos.js":7,"three":10}],3:[function(require,module,exports){
+},{"../config.js":1,"../libs/geos.js":8,"three":11}],4:[function(require,module,exports){
 
 // DISABLE ERRORS:
 console.warn = (text) => {};
@@ -685,7 +687,7 @@ const PREFABS = require("./data/prefabs.js");
 const texturePrefabs = PREFABS.texturePrefabs;
 const loadTexturePrefab = PREFABS.loadTexturePrefab;
 const initScene = require("./libs/render.js").initScene;
-//const biomes = require("./data/map.js").biomes;
+const biomes = require("./data/map.js").biomes;
 const GEOS = require("./libs/geos.js");
 const UTILS = require("./libs/utils.js");
 const config = require("./config.js");
@@ -2871,7 +2873,7 @@ const editor = {
 };
 editor.init(document.getElementById("container"));
 
-},{"./config.js":1,"./data/prefabs.js":2,"./libs/OBJLoader.js":4,"./libs/PointerLockControls.js":5,"./libs/TransformControls.js":6,"./libs/geos.js":7,"./libs/render.js":8,"./libs/utils.js":9,"three":10}],4:[function(require,module,exports){
+},{"./config.js":1,"./data/map.js":2,"./data/prefabs.js":3,"./libs/OBJLoader.js":5,"./libs/PointerLockControls.js":6,"./libs/TransformControls.js":7,"./libs/geos.js":8,"./libs/render.js":9,"./libs/utils.js":10,"three":11}],5:[function(require,module,exports){
 
 module.exports = function(THREE) {
     return ( function () {
@@ -3665,7 +3667,7 @@ module.exports = function(THREE) {
     } )();
 }
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 /**
  * @author mrdoob / http://mrdoob.com/
  */
@@ -3738,7 +3740,7 @@ module.exports = function(THREE) {
 	};
 };
 
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 /**
  * @author arodic / https://github.com/arodic
  */
@@ -4895,7 +4897,7 @@ module.exports = function (THREE) {
 	return TransformControls;
 }
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 var r = require("three");
 const i = require("../config.js");
 require("./utils.js");
@@ -4980,7 +4982,7 @@ module.exports.generateCube = function (e, n, s, c, l) {
     }
     return o
 }
-},{"../config.js":1,"./utils.js":9,"three":10}],8:[function(require,module,exports){
+},{"../config.js":1,"./utils.js":10,"three":11}],9:[function(require,module,exports){
 var i = require("../config.js"),
 o = require("three");
 module.exports = function (e, i, o) {
@@ -5449,7 +5451,7 @@ module.exports.initScene = function (t) {
     this.useDepthMap && "0" != this.useDepthMap && this.toggleDepthMap(this.useDepthMap),
     this.greenScreen && this.toggleGreenscreen(this.greenScreen)
 }
-},{"../config.js":1,"./geos.js":7,"three":10}],9:[function(require,module,exports){
+},{"../config.js":1,"./geos.js":8,"three":11}],10:[function(require,module,exports){
 module.exports.keyboardMap = "   CANCEL   HELP  BACK_SPACE TAB   CLEAR ENTER ENTER_SPECIAL  SHIFT CONTROL ALT PAUSE CAPS_LOCK KANA EISU JUNJA FINAL HANJA  ESCAPE CONVERT NONCONVERT ACCEPT MODECHANGE SPACE PAGE_UP PAGE_DOWN END HOME LEFT UP RIGHT DOWN SELECT PRINT EXECUTE PRINTSCREEN INSERT DELETE  0 1 2 3 4 5 6 7 8 9 COLON SEMICOLON LESS_THAN EQUALS GREATER_THAN QUESTION_MARK AT A B C D E F G H I J K L M N O P Q R S T U V W X Y Z OS_KEY  CONTEXT_MENU  SLEEP NUMPAD0 NUMPAD1 NUMPAD2 NUMPAD3 NUMPAD4 NUMPAD5 NUMPAD6 NUMPAD7 NUMPAD8 NUMPAD9 MULTIPLY ADD SEPARATOR SUBTRACT DECIMAL DIVIDE F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F15 F16 F17 F18 F19 F20 F21 F22 F23 F24         NUM_LOCK SCROLL_LOCK WIN_OEM_FJ_JISHO WIN_OEM_FJ_MASSHOU WIN_OEM_FJ_TOUROKU WIN_OEM_FJ_LOYA WIN_OEM_FJ_ROYA          CIRCUMFLEX EXCLAMATION DOUBLE_QUOTE HASH DOLLAR PERCENT AMPERSAND UNDERSCORE OPEN_PAREN CLOSE_PAREN ASTERISK PLUS PIPE HYPHEN_MINUS OPEN_CURLY_BRACKET CLOSE_CURLY_BRACKET TILDE     VOLUME_MUTE VOLUME_DOWN VOLUME_UP   SEMICOLON EQUALS COMMA MINUS PERIOD SLASH BACK_QUOTE                           OPEN_BRACKET BACK_SLASH CLOSE_BRACKET QUOTE  META ALTGR  WIN_ICO_HELP WIN_ICO_00  WIN_ICO_CLEAR   WIN_OEM_RESET WIN_OEM_JUMP WIN_OEM_PA1 WIN_OEM_PA2 WIN_OEM_PA3 WIN_OEM_WSCTRL WIN_OEM_CUSEL WIN_OEM_ATTN WIN_OEM_FINISH WIN_OEM_COPY WIN_OEM_AUTO WIN_OEM_ENLW WIN_OEM_BACKTAB ATTN CRSEL EXSEL EREOF PLAY ZOOM  PA1 WIN_OEM_CLEAR ".split(" "),
 Number.prototype.round = function (t) {
     return +this.toFixed(t)
@@ -5740,7 +5742,7 @@ Array.prototype.flatMap = function (t) {
     }
     (t, this)
 }
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
@@ -53470,4 +53472,4 @@ Array.prototype.flatMap = function (t) {
 
 })));
 
-},{}]},{},[3]);
+},{}]},{},[4]);
