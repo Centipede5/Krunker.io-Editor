@@ -272,8 +272,7 @@ class ObjectInstance extends THREE.Object3D {
             this.boxShape.position.copy(this.boundingMesh.position);
             //this.boxShape.position.y += this.boundingMesh.scale.y / 2;
             this.boxShape.scale.copy(this.boundingMesh.scale);
-            this.boxShape.quaternion.copy(this.boundingMesh.quaternion)
-            //this.boxShape.rotation.copy(this.boundingMesh.rotation);
+            this.boxShape.rotation.copy(this.boundingMesh.rotation);
         }
 
         // Update arrow and make it hover above the object
