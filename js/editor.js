@@ -434,6 +434,7 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     TREE: {
+        defaultSize: [37, 92, 48],
         dontRound: true,
         complex: true,
         gen: parent => loadObj(parent, "models/tree_0.obj", "textures/tree_0.png", config.treeScale),
@@ -441,6 +442,7 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     VEHICLE: {
+        defaultSize: [51, 16, 21],
         dontRound: true,
         complex: true,
         gen: parent => loadObj(parent, "models/vehicle_0.obj", "textures/vehicle_0.png", config.vehicleScale),
@@ -927,7 +929,6 @@ class ObjectInstance extends THREE.Object3D {
         if (this.boxShape) {
             this.boxShape.position.copy(this.boundingMesh.position);
             //this.boxShape.position.y += this.boundingMesh.scale.y / 2;
-            console.log(this.boundingMesh.scale.x.roundToNearest(1), this.boundingMesh.scale.y.roundToNearest(1), this.boundingMesh.scale.z.roundToNearest(1));
             this.boxShape.scale.copy(this.boundingMesh.scale);
             this.boxShape.rotation.copy(this.boundingMesh.rotation);
         }
