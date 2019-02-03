@@ -271,6 +271,7 @@ class ObjectInstance extends THREE.Object3D {
         if (this.boxShape) {
             this.boxShape.position.copy(this.boundingMesh.position);
             //this.boxShape.position.y += this.boundingMesh.scale.y / 2;
+            console.log(this.boundingMesh.scale);
             this.boxShape.scale.copy(this.boundingMesh.scale);
             this.boxShape.rotation.copy(this.boundingMesh.rotation);
         }
