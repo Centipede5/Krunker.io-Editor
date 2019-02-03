@@ -107,7 +107,7 @@ module.exports.crateScale = 6,
 module.exports.stackScale = 6,
 module.exports.barrelScale = 4,
 module.exports.treeScale = 10,
-module.exports.vehicleScale = 20,
+module.exports.vehicleScale = 10,
 module.exports.barrelMlt = 1.5,
 module.exports.ladderWidth = 3.2,
 module.exports.ladderScale = .5,
@@ -312,10 +312,10 @@ function loadObj(parent, src, textureSrc, scale) {
                     if (child instanceof THREE.Mesh) {
                         if (child.geometry.isBufferGeometry) {
                             tmpGeometry.fromBufferGeometry(child.geometry);
-                           // tmpGeometry.computeFlatVertexNormals();
+                            tmpGeometry.computeFlatVertexNormals();
                             child.geometry.fromGeometry(tmpGeometry);
                         } else {
-                            //child.geometry.computeFlatVertexNormals();
+                            child.geometry.computeFlatVertexNormals();
                         }
                         child.material = material;
                     }
