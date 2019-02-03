@@ -151,6 +151,7 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     TREE: {
+        defaultSize: [37, 92, 48],
         dontRound: true,
         complex: true,
         gen: parent => loadObj(parent, "models/tree_0.obj", "textures/tree_0.png", config.treeScale),
@@ -158,6 +159,7 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     VEHICLE: {
+        defaultSize: [51, 16, 21],
         dontRound: true,
         complex: true,
         gen: parent => loadObj(parent, "models/vehicle_0.obj", "textures/vehicle_0.png", config.vehicleScale),
