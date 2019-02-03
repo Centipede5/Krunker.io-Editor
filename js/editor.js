@@ -925,7 +925,9 @@ class ObjectInstance extends THREE.Object3D {
             this.boxShape.position.copy(this.boundingMesh.position);
             //this.boxShape.position.y += this.boundingMesh.scale.y / 2;
             this.boxShape.scale.copy(this.boundingMesh.scale);
-            this.boxShape.rotation.copy(this.boundingMesh.rotation);
+            //this.boxShape.setRotationFromMatrix(this.boundingMesh.matrixWorld);
+            this.boxShape.quaternion.copy(this.boundingMesh.quaternion)
+            //this.boxShape.rotation.copy(this.boundingMesh.rotation);
         }
 
         // Update arrow and make it hover above the object
@@ -2608,9 +2610,8 @@ const editor = {
         let objects = [];
 
         for (let i = 0; i < data.length; i += 4) {
-            let rgb = this.rgbArrayToHex([data[i], data[i + 1], data[i + 2]])
-            let opacity = data[i + 3] / 255;
-            opacity = Math.round(opacity * 100) / 100;
+            let rgb = this.rgbArrayToHex([data[i], data[i + 1], data[i + 2]]);
+            let opacity = Math.round((data[i + 3] / 255) * 100) / 100;
             colors.push([rgb, opacity]);
         }
         let height = 0; 
@@ -2626,13 +2627,7 @@ const editor = {
             if (colors[i][1] != 1) ob.o = colors[i][1];
             objects.push(ob);
         }
-        objects = this.mergeObjects(objects);
-        let center = this.findCenter(objects);
-        for (let ob of objects){
-            ob.p[0] -= center[0];
-            ob.p[1] -= center[1];
-            ob.p[2] -= center[2];
-        }
+        objects = this.applyCenter(this.mergeObjects(objects));
         let map = {"name":"New Krunker Map","modURL":"","ambient":9937064,"light":15923452,"sky":14477549,"fog":9280160,"fogD":900,"camPos":[0,0,0],"spawns":[],"objects":[]};
         map.objects = objects;
         if (insert) this.replaceObject(JSON.stringify(map.objects), true);
