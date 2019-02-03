@@ -10,3 +10,11 @@
 ### How to update:
 - Use "browserify editor.js -o js/editor.js"
 - Open up editor.html & your good to go
+
+
+### For Sidney:
+- Files that i changed:
+	- editor.js
+	- editor.html
+	- prefabs.js
+- Everything else is useless as it was jsut extracted from the site to get it working

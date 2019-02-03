@@ -21,7 +21,7 @@ function updateObjectCount(count) {
 var THREE = require("three");
 THREE.OBJLoader = require("./libs/OBJLoader.js")(THREE);
 THREE.PointerLockControls = require("./libs/PointerLockControls.js")(THREE);
-THREE.TransformControls = require("./libs/TransformControls.js")(THREE);
+require("./libs/TransformControls.js")(THREE);
 const prefabs = require("./data/prefabs.js").prefabs;
 const PREFABS = require("./data/prefabs.js");
 const texturePrefabs = PREFABS.texturePrefabs;
