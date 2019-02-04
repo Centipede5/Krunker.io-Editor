@@ -1057,21 +1057,21 @@ const editor = {
                 if (type == 'undo') {
                     let rem = this.objInstances.filter(x => x.uuid == last.obj.uuid);
                     delete this.objHistory[last.obj.uuid];
-                    this.removeObject(rem[0]);
+                    this.removeObject(rem[0], false, false);
                     this.redos.push(last);
                 } else {
-                    this.addObject(last.obj);
+                    this.addObject(last.obj, false, false);
                 }
                 break;
 
             case 'remove':
                 if (type == 'undo') {
                     console.log(last.obj);
-                    this.addObject(last.obj);
+                    this.addObject(last.obj, false, false);
                     this.redos.push(last);
                 } else {
                     delete this.objHistory[last.obj.uuid];
-                    this.removeObject(last.obj);
+                    this.removeObject(last.obj, false, false);
                 }
                 break;
 
@@ -1780,7 +1780,7 @@ const editor = {
     },
 
     // OBJECT MANAGEMENT:
-    addObject(instance, multiple = false) {
+    addObject(instance, multiple = false, add = true) {
         // Multiple - Use When importing large amounts of objects at once
 
         // Create object
@@ -1788,7 +1788,7 @@ const editor = {
         this.objInstances.push(instance);
         updateObjectCount(this.objInstances.length);
         
-        this.addToHistory('add', instance);
+        if (add) this.addToHistory('add', instance);
 
         // Add the bounding mesh
         this.scene.add(instance.boundingMesh);
@@ -1801,7 +1801,7 @@ const editor = {
         // Select item
         if (!multiple) this.attachTransform(instance.boundingMesh);
     },
-    removeObject(object, multiple = false) {
+    removeObject(object, multiple = false, add = true) {
         // Remove the object passed in or the selected object
         object = object ? object.boundingMesh : this.transformControl.object;
         if (object) {
@@ -1819,7 +1819,7 @@ const editor = {
             // Remove the arrow
             if (instance.arrowHelper) this.scene.remove(instance.arrowHelper);
             
-            this.addToHistory('remove', instance);
+            if (add) this.addToHistory('remove', instance);
 
             // Remove transform
             if (!multiple) this.hideTransform();
