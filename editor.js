@@ -104,8 +104,8 @@ class ObjectInstance extends THREE.Object3D {
         if (this.prefab.editPen) this._penetrable = c;
     }
 
-    get boost() { return this._boost }
-    set boost(b) { this._boost = b }
+    get boost() { return this._boost; }
+    set boost(b) { this._boost = b; }
 
     get visible() { return this._visible; }
     set visible(c) {
@@ -378,12 +378,68 @@ ObjectInstance.boundingNoncollidableBoxMaterial = new THREE.LineBasicMaterial({ 
 
 // EDITOR OBJECT:
 const editor = {
+    
+    addToHistory(cmd, object) {
+        let save = {action: cmd, obj: object};
+        switch (cmd) {
+            case 'add': 
+            case 'remove':
+            case 'edit':
+                this.undos.push(save);
+                break;
 
+            case 'import': //Asset also
+                break;
+        }
+    },
+    executeHistory(type = 'undo') {
+        let last = type == 'undo' ? this.undos.pop() : this.redos.pop();
+        if (!last) return;
+        switch (last.action) {
+            case 'add': 
+                if (type == 'undo') {
+                    let rem = this.objInstances.filter(x => x.uuid == last.obj.uuid);
+                    console.log(rem);
+                    this.removeObject(rem[0]);
+                    this.redos.push(last);
+                } else {
+                    this.addObject(last.obj);
+                }
+                break;
+
+            case 'remove':
+                if (type == 'undo') {
+                    console.log(last.obj);
+                    this.addObject(last.obj);
+                    this.redos.push(last);
+                } else {
+                    this.removeObject(last.obj);
+                }
+                break;
+
+            case 'edit':
+                if (type == 'undo') {
+                    console.log(last.obj);
+                } else {
+                    
+                }
+                break;
+
+            case 'import': //Asset also
+                break;
+        }
+    },
+    
     // INIT:
     init(container) {
         this.objChanges = [];
         this.prevObject = 0;
         this.undo = true;
+        
+        this.undos = [];
+        this.redos = [];
+        this.objHistory = [];
+        
 
         this.container = container;
 
@@ -426,7 +482,6 @@ const editor = {
             degToRad: false,
             backupMap: false,
             antiAlias: false,
-            highPrecision: false,
             gridVisibility: true,
             gridOpacity: .25,
             gridSize: 100,
@@ -441,6 +496,7 @@ const editor = {
             voxelSize: 10,
             imageSize: 1,
             assetAutoGroup: false,
+            preserveFolderState: false,
         };
         this.copy = null;
         this.objGroups = [];
@@ -686,11 +742,13 @@ const editor = {
         //otherMenu.add(options, "exportToObj").name("Export To Obj");
         
         let settingsMenu = mainMenu.addFolder('Settings');
-        settingsMenu.add(this.settings, "degToRad").name("Anti Radians").onChange(t => {this.setSettings('degToRad', t)});
         settingsMenu.add(this.settings, "backupMap").name("Auto Backup").onChange(t => {this.setSettings('backupMap', t)});
         settingsMenu.add(this.settings, "antiAlias").name("Anti-aliasing").onChange(t => {this.setSettings('antiAlias', t), alert("This change will occur after you refresh")});   
-        settingsMenu.add(this.settings, "highPrecision").name("High Precision").onChange(t => {this.setSettings('highPrecision', t), alert("This change will occur after you refresh")});
         settingsMenu.add(this.settings, "objectHighlight").name("Hightlight").onChange(t => {this.setSettings('objectHighlight', t)});
+
+        let objConfigMenu = settingsMenu.addFolder('Object Config');
+        objConfigMenu.add(this.settings, "degToRad").name("Anti Radians").onChange(t => {this.setSettings('degToRad', t)});
+        objConfigMenu.add(this.settings, "preserveFolderState").name("Preserve Folders").onChange(t => {this.setSettings('preserveFolderState', t)});
 
         let gridMenu = settingsMenu.addFolder('Grid');
         gridMenu.add(this.settings, "gridVisibility").name("Visible").onChange(t => {this.setSettings('gridVisibility', t), this.updateGridHelper()});      
@@ -745,7 +803,7 @@ const editor = {
 
         // RENDERER:
         this.renderer = new THREE.WebGLRenderer({
-            precision: this.settings.highPrecision ? "highp" : "mediump",
+            precision:"mediump",
     		powerPreference: "high-performance",
     		antialias: this.settings.antiAlias ? true : false
         });
@@ -948,8 +1006,14 @@ const editor = {
                         }
                     }
                     break;
+                case 89:
+                    if(ev.ctrlKey) {
+                        return this.executeHistory('redo');
+                    }
+                    break;
                 case 90:
                     if(ev.ctrlKey) {
+                        return this.executeHistory('undo');
                         this.undo = false;
                         if (!this.objChanges.length) return;
                         let last = this.objChanges.slice(-1).pop(); 
@@ -1080,6 +1144,8 @@ const editor = {
         
         if(this.undo) this.objChanges.push([{object: false, instance: 0},{object: this.objInstances[this.objInstances.length - 1], instance: 0}]);
         this.undo = false;
+        
+        this.addToHistory('add', instance);
 
         // Add the bounding mesh
         this.scene.add(instance.boundingMesh);
@@ -1109,6 +1175,8 @@ const editor = {
 
             // Remove the arrow
             if (instance.arrowHelper) this.scene.remove(instance.arrowHelper);
+            
+            this.addToHistory('remove', instance);
 
             // Remove transform
             if (!multiple) this.hideTransform();
@@ -1330,10 +1398,13 @@ const editor = {
     },
     xyzKeys: ["X", "Y", "Z"],
     updateObjConfigGUI() {
+        let wasOpen = {};
         // Remove all previous options
         for (let option of this.objConfigOptions) {
             // Remove folder or option with appropriate method
             if (option instanceof dat.GUI) {
+                // Preserve Open State
+                wasOpen[option.name] = !option.closed;
                 this.objConfigGUI.removeFolder(option);
             } else {
                 this.objConfigGUI.remove(option);
@@ -1459,6 +1530,7 @@ const editor = {
                     instance[instanceKey] = instanceKey == "rot" ? this.degToRad(array) : array;
                 });
             }
+            if (wasOpen[name] && this.settings.preserveFolderState) o.open();
             this.objConfigOptions.push(o);
         };
         arrayAttribute("pos", this.objConfig.pos, "Position");
