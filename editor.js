@@ -379,16 +379,13 @@ ObjectInstance.boundingNoncollidableBoxMaterial = new THREE.LineBasicMaterial({ 
 // EDITOR OBJECT:
 const editor = {
     
-    addToHistory(cmd, object) {
-        let save = {action: cmd, obj: object};
+    addToHistory(cmd, object, history = null) {
+        let save = {action: cmd, obj: object, history: history};
         switch (cmd) {
             case 'add': 
             case 'remove':
-            case 'edit':
+            case 'update':
                 this.undos.push(save);
-                break;
-
-            case 'import': //Asset also
                 break;
         }
     },
@@ -399,7 +396,7 @@ const editor = {
             case 'add': 
                 if (type == 'undo') {
                     let rem = this.objInstances.filter(x => x.uuid == last.obj.uuid);
-                    console.log(rem);
+                    delete this.objHistory[last.obj.uuid];
                     this.removeObject(rem[0]);
                     this.redos.push(last);
                 } else {
@@ -413,33 +410,56 @@ const editor = {
                     this.addObject(last.obj);
                     this.redos.push(last);
                 } else {
+                    delete this.objHistory[last.obj.uuid];
                     this.removeObject(last.obj);
                 }
                 break;
 
-            case 'edit':
-                if (type == 'undo') {
-                    console.log(last.obj);
-                } else {
-                    
-                }
-                break;
-
-            case 'import': //Asset also
+            case 'update':
+                if (type == 'undo') this.redos.push(last);
+                let update = this.objInstances.filter(x => x.uuid == last.obj.uuid)[0];
+                let data = last.history;
+                update.pos = data.p;
+                update.size = data.s;
+                update.rotation = data.r || [0, 0, 0];
+                update.collidable = data.col===undefined?true:false;        
+                update.penetrable = data.pe?true:false; 
+                update.texture = (config.textureIDS[data.t||0])||ObjectInstance.DEFAULT_TEXTURE;
+                update.boost = data.b || 0;
+                update.health = data.hp || 0;
+                update.part = data.pr || 0;
+                update.team = data.tm || 0;
+                update.visible = data.v===undefined?true:false;
+                update.terrain = data.ter||false;
+                update.color = data.c!=undefined?data.c:0xffffff;
+                update.emissive = data.e!=undefined?data.e:0x000000;
+                update.opacity = data.o!=undefined?data.o:1;
+                update.direction = data.d || undefined;
+                
+                this.objHistory[last.obj.uuid] = update.serialize();
                 break;
         }
     },
+    updateObjHistory(obj) {
+        if (this.objHistory[obj.uuid]) {
+            let prev = JSON.stringify(this.objHistory[obj.uuid]);
+            let curr = JSON.stringify(obj.serialize());
+            if (prev != curr) {
+                this.addToHistory('update', obj, this.objHistory[obj.uuid]);
+            }
+        }
+        
+        this.objHistory[obj.uuid] = obj.serialize();
+    },
+    
     
     // INIT:
     init(container) {
-        this.objChanges = [];
-        this.prevObject = 0;
-        this.undo = true;
-        
+
         this.undos = [];
         this.redos = [];
         this.objHistory = [];
-        
+
 
         this.container = container;
 
@@ -1006,25 +1026,11 @@ const editor = {
                         }
                     }
                     break;
-                case 89:
-                    if(ev.ctrlKey) {
-                        return this.executeHistory('redo');
-                    }
+                case 89: //ctrl y (redo)
+                    if(ev.ctrlKey) this.executeHistory('redo');
                     break;
-                case 90:
-                    if(ev.ctrlKey) {
-                        return this.executeHistory('undo');
-                        this.undo = false;
-                        if (!this.objChanges.length) return;
-                        let last = this.objChanges.slice(-1).pop(); 
-                        if (last[0].object) this.addObject(last[0].object);
-                        if (last[1].object) this.removeObject(last[1].object);
-                        if (last.length > 2) 
-                            for (let i = 2; i < last.length; i++) 
-                                this.objInstances[last[i].index][last[i].key] = last[i].value;
-
-                        this.objChanges.splice([this.objChanges.length - 1], 1);
-                    }
+                case 90: // ctrl z (undo)
+                    if(ev.ctrlKey) this.executeHistory('undo');
                     break;
             }
         });
@@ -1101,9 +1107,8 @@ const editor = {
         // Update all of the instances
         for (let instance of this.objInstances) {
             instance.update(dt);
+            this.updateObjHistory(instance);
         }
-        // UNDO
-        this.checkUndo();
         
         // Check Group changes
         this.updateGroups();
@@ -1112,25 +1117,6 @@ const editor = {
         this.renderer.render(this.scene, this.camera);
         this.transformControl.update();
         requestAnimationFrame(() => this.render());
-    },
-    
-    //UNDO
-    checkUndo() {
-        if (this.transformControl.object) {
-            if (this.undo && this.prevObject !== this.objConfig) {
-                let temporary = [{object: false, instance: false}, {object: false, instance: false}];
-                for (let keys in this.prevObject) {
-                    if (this.objConfig[keys] !== this.prevObject[keys]) {
-                        temporary.push({key: keys, value: this.prevObject[keys], index: this.objInstances.indexOf(this.transformControl.object.userData.owner)});
-                    }
-                    this.prevObject[keys] = this.objConfig[keys];
-                }
-                if (temporary.length > 2) this.objChanges.push(temporary);
-            }
-        }
-        this.undo = true;
-
-        this.prevObject = {...this.objConfig};
     },
 
     // OBJECT MANAGEMENT:
@@ -1141,9 +1127,6 @@ const editor = {
         this.scene.add(instance);
         this.objInstances.push(instance);
         updateObjectCount(this.objInstances.length);
-        
-        if(this.undo) this.objChanges.push([{object: false, instance: 0},{object: this.objInstances[this.objInstances.length - 1], instance: 0}]);
-        this.undo = false;
         
         this.addToHistory('add', instance);
 
@@ -1180,9 +1163,6 @@ const editor = {
 
             // Remove transform
             if (!multiple) this.hideTransform();
-            
-            if (this.undo) this.objChanges.push([{object: object, instance: instance}, {object: false, instance: instance}]);
-            this.undo = false;
         } else {
             console.log("No object to remove.");
         }
