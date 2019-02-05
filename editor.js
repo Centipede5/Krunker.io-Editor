@@ -705,7 +705,7 @@ const editor = {
         
         let exportMenu = groupingMenu.addFolder("Export");
         
-        exportMenu.add(options, "exportObj").name("Objects");
+        exportMenu.add(options, "exportObj").name("Asset");
         exportMenu.add(options, "exportFull").name("Full");         
         
         let otherMenu = mainMenu.addFolder("Other Features");

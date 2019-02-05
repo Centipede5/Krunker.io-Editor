@@ -428,7 +428,7 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     BARREL: {
-        defaultSize: [8, 8, 8],
+        defaultSize: [7, 8, 7],
         dontRound: true,
         complex: true,
         gen: parent => loadObj(parent, "models/barrel_0.obj", "textures/barrel_0.png", config.barrelScale),
@@ -436,7 +436,7 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     TREE: {
-        defaultSize: [37, 92, 48],
+        defaultSize: [37, 92, 47],
         dontRound: true,
         complex: true,
         gen: parent => loadObj(parent, "models/tree_0.obj", "textures/tree_0.png", config.treeScale),
@@ -444,7 +444,7 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     VEHICLE: {
-        defaultSize: [51, 16, 21],
+        defaultSize: [51, 15, 20],
         dontRound: true,
         complex: true,
         gen: parent => loadObj(parent, "models/vehicle_0.obj", "textures/vehicle_0.png", config.vehicleScale),
@@ -1365,7 +1365,7 @@ const editor = {
         
         let exportMenu = groupingMenu.addFolder("Export");
         
-        exportMenu.add(options, "exportObj").name("Objects");
+        exportMenu.add(options, "exportObj").name("Asset");
         exportMenu.add(options, "exportFull").name("Full");         
         
         let otherMenu = mainMenu.addFolder("Other Features");
