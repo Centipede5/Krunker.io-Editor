@@ -1766,7 +1766,7 @@ const editor = {
 
         this.objGroups[selected.uuid].objects.push(selected.uuid);
         let obs = this.objInstances.filter(ob => this.objGroups[selected.uuid].objects.includes(ob.boundingMesh.uuid));
-        for (let i = 0; i < obs.length; i++);
+        for (let i = 0; i < obs.length; i++)
             this.removeObject(obs[i]);
 
         delete this.objGroups[selected.uuid];
