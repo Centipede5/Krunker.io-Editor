@@ -1030,7 +1030,7 @@ const editor = {
                     if(ev.ctrlKey) this.executeHistory('redo');
                     break;
                 case 90: // ctrl z (undo)
-                    if(ev.ctrlKey) this.executeHistory('undo');
+                    if(ev.ctrlKey) this.executeHistory(ev.shiftKey ? 'redo' : 'undo');
                     break;
             }
         });
