@@ -1100,18 +1100,22 @@ const editor = {
                 break;
         }
     },
-    updateObjHistory(obj) {
-        if (this.objHistory[obj.uuid]) {
-            let prev = JSON.stringify(this.objHistory[obj.uuid]);
-            let curr = JSON.stringify(obj.serialize());
-            if (prev != curr) {
-                this.addToHistory('update', obj, this.objHistory[obj.uuid]);
+    initHistory() {
+        let scope = this;
+        setInterval(function() {
+            for (let instance of scope.objInstances) {
+                if (scope.objHistory[instance.uuid]) {
+                    let prev = JSON.stringify(scope.objHistory[instance.uuid]);
+                    let curr = JSON.stringify(instance.serialize());
+                    if (prev != curr) {
+                        scope.addToHistory('update', instance, scope.objHistory[instance.uuid]);
+                    }
+                }
+                
+                scope.objHistory[instance.uuid] = instance.serialize();
             }
-        }
-        
-        this.objHistory[obj.uuid] = obj.serialize();
+        }, 1000); 
     },
-    
     
     // INIT:
     init(container) {
@@ -1119,7 +1123,6 @@ const editor = {
         this.undos = [];
         this.redos = [];
         this.objHistory = [];
-
 
         this.container = container;
 
@@ -1190,6 +1193,7 @@ const editor = {
         this.initGUI();
         this.initAdvancedGUI();
         this.initControls();
+        this.initHistory();
         this.registerEvents();
         this.setSnapping(true);
 
@@ -1767,7 +1771,6 @@ const editor = {
         // Update all of the instances
         for (let instance of this.objInstances) {
             instance.update(dt);
-            this.updateObjHistory(instance);
         }
         
         // Check Group changes
