@@ -23,6 +23,14 @@ module.exports.serverConfig = [{
         min: 1,
         step: 1
     }, {
+        name: "Min Players",
+        varN: "minPlayers",
+        def: 0,
+        max: 10,
+        maxF: 16,
+        min: 0,
+        step: 1
+    }, {
         name: "Lives",
         varN: "lives",
         def: 0,
@@ -77,8 +85,22 @@ module.exports.serverConfig = [{
         min: .1,
         step: .1
     }, {
+        name: "Spectating",
+        varN: "allowSpect",
+        def: !0,
+        bool: !0
+    }, {
+        name: "Kill Rewards",
+        varN: "killRewards",
+        def: !0,
+        bool: !0
+    }, {
         name: "Auto Jump",
         varN: "autoJump",
+        bool: !0
+    }, {
+        name: "3rd Person",
+        varN: "thirdPerson",
         bool: !0
     }, {
         name: "Hide Nametags",
@@ -930,7 +952,6 @@ class ObjectInstance extends THREE.Object3D {
         // Invert rotation for box shape
         if (this.boxShape) {
             this.boxShape.position.copy(this.boundingMesh.position);
-            //this.boxShape.position.y += this.boundingMesh.scale.y / 2;
             this.boxShape.scale.copy(this.boundingMesh.scale);
             this.boxShape.rotation.copy(this.boundingMesh.rotation);
         }
@@ -974,12 +995,8 @@ class ObjectInstance extends THREE.Object3D {
         var tID = config.prefabIDS.indexOf(this.objType);
         if (tID) data.id = tID;
         if (data.id === -1) alert("WARNING: No prefab id for type " + this.objType + ".");
-        data.p[0] = Math.round(data.p[0]);
-        data.p[1] = Math.round(data.p[1]);
-        data.p[2] = Math.round(data.p[2]);
-        data.s[0] = Math.round(data.s[0]);
-        data.s[1] = Math.round(data.s[1]);
-        data.s[2] = Math.round(data.s[2]);
+        data.p = data.p.map(x => Math.round(x));
+        data.s = data.s.map(x => Math.round(x));
         if (!this.collidable) data.col = (!this.collidable)?1:0;
         if (this.penetrable) data.pe = 1;
         if (this.boost) data.b = this.boost;
@@ -1314,7 +1331,6 @@ const editor = {
             frameThickness: 10,
             frameCeiling: false,
             frameFloor: false,
-            //exportToObj: (() => this.exportToObj()),
             reflectDir: 0,
             reflectMap: (() => this.reflectMap()),
             speedReset: (() => (this.setSettings('speedNormal', 70), this.setSettings('speedSprint', 180), this.advancedGUI.updateDisplay())),
@@ -1718,7 +1734,7 @@ const editor = {
             this.raycaster.setFromCamera(rayPoint, this.camera);
 
             // Handle the transform selection
-            let intersects = this.raycaster.intersectObjects(this.boundingMeshes);
+            let intersects = this.raycaster.intersectObjects(this.boundingMeshes, true);
             if (intersects.length > 0) {
                 let selected = intersects[0].object;
                 this.attachTransform(selected);
@@ -2193,10 +2209,6 @@ const editor = {
     },
     replaceObject(str, skip = false, fix = false, autoGroup = false) {
         let selected = this.objectSelected();
-        if (!selected) {
-            //this.addObject(ObjectInstance.defaultFromType("CUBE"))
-            //selected = this.objectSelected()
-        }
         if (selected) {
             if (!fix) this.removeObject();
 
@@ -2274,7 +2286,6 @@ const editor = {
         return [Math.round((xMin + xMax)/2), yMin, Math.round((zMin + zMax) / 2)];
     },
     applyCenter(objects) {
-        //justprob <3
         let center = this.findCenter(objects);
         for (let ob of objects){
             ob.p[0] -= center[0];
@@ -2284,7 +2295,6 @@ const editor = {
         return objects;
     },
     reflect(jsp, dir) {
-        //justprob <3
         let obs = jsp.objects ? jsp.objects : (jsp.states || jsp.id ? jsp.map.objects : jsp);
         let reference = this.findCenter(obs);
         for (let ob of obs) {
@@ -2623,7 +2633,6 @@ const editor = {
         }
     },
     replicateMulti(objs, number, space, dir){
-        //justprob <3
         let objects = JSON.parse(JSON.stringify(objs));
         let temp = objects;
 
@@ -2792,7 +2801,6 @@ const editor = {
                 posX += 9; 
             }
         }
-        //return objects;
         this.replaceObject(JSON.stringify(objects), true, false, true);
     },
     frameObject() {

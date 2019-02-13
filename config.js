@@ -22,6 +22,14 @@ module.exports.serverConfig = [{
         min: 1,
         step: 1
     }, {
+        name: "Min Players",
+        varN: "minPlayers",
+        def: 0,
+        max: 10,
+        maxF: 16,
+        min: 0,
+        step: 1
+    }, {
         name: "Lives",
         varN: "lives",
         def: 0,
@@ -76,8 +84,22 @@ module.exports.serverConfig = [{
         min: .1,
         step: .1
     }, {
+        name: "Spectating",
+        varN: "allowSpect",
+        def: !0,
+        bool: !0
+    }, {
+        name: "Kill Rewards",
+        varN: "killRewards",
+        def: !0,
+        bool: !0
+    }, {
         name: "Auto Jump",
         varN: "autoJump",
+        bool: !0
+    }, {
+        name: "3rd Person",
+        varN: "thirdPerson",
         bool: !0
     }, {
         name: "Hide Nametags",
