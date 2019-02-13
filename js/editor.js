@@ -2603,6 +2603,9 @@ const editor = {
             case 'TREE':
                 this.replaceObject('[{"p":[0,0,0],"s":[9,55,9],"v":1},{"p":[0,37,16],"s":[15,15,15],"v":1},{"p":[0,30,-16],"s":[15,15,15],"v":1},{"p":[0,29,11],"s":[4,4,13],"v":1},{"p":[0,33,16],"s":[4,4,4],"v":1},{"p":[0,36,-6],"s":[4,4,5],"v":1},{"p":[0,55,0],"s":[37,37,37],"v":1}]', true, selected.userData.owner.objType);
                 break;
+            case 'CONTAINERR':
+                this.replaceObject('[{"p":[0,0,0],"s":[57,1,25],"c":11739168},{"p":[0,24,0],"s":[57,2,25],"pe":1,"v":1},{"p":[0,0,-12],"s":[57,25,1],"pe":1,"v":1},{"p":[0,0,12],"s":[57,25,1],"pe":1,"v":1}]', true, selected.userData.owner.objType)
+                break;
         }
     },
     createPlaceholder() {
