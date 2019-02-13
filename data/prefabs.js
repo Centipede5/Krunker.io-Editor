@@ -145,7 +145,6 @@ module.exports.prefabs = {
     BARREL: {
         defaultSize: [7, 8, 7],
         dontRound: true,
-        complex: true,
         gen: parent => loadObj(parent, "models/barrel_0.obj", "textures/barrel_0.png", config.barrelScale),
         castShadow: true,
         receiveShadow: true
@@ -156,6 +155,36 @@ module.exports.prefabs = {
         complex: true,
         gen: parent => loadObj(parent, "models/tree_0.obj", "textures/tree_0.png", config.treeScale),
         castShadow: true,
+        receiveShadow: true
+    },
+    CONE: {
+        defaultSize: [4, 7, 4],
+        dontRound: true,
+        complex: true,
+        gen: parent => loadObj(parent, "models/cone_0.obj", "textures/cone_0.png", config.coneScale),
+        castShadow: true,
+        receiveShadow: true
+    },
+    CONTAINER: {
+        defaultSize: [57, 26, 25],
+        dontRound: true,
+        gen: parent => loadObj(parent, "models/container_0.obj", "textures/container_0.png", config.containerScale),
+        castShadow: true,
+        receiveShadow: true
+    },
+    CONTAINERR: {
+        defaultSize: [57, 26, 25],
+        dontRound: true,
+        gen: parent => loadObj(parent, "models/containerr_0.obj", "textures/containerr_0.png", config.containerScale),
+        castShadow: true,
+        receiveShadow: true
+    },
+    GRASS: {
+        defaultSize: [12, 6, 12],
+        complex: true,
+        doubleSide: true,
+        transparent: true,
+        gen: parent => loadObj(parent, "models/grass_0.obj", "textures/grass_0.png", config.grassScale),
         receiveShadow: true
     },
     VEHICLE: {
@@ -218,6 +247,7 @@ module.exports.prefabs = {
         dontRound: true,
         scalable: true,
         canTerrain: true,
+        edgeNoise: true,
         scaleWithSize: true,
         editColor: true,
         editPen: true,

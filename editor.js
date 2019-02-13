@@ -107,6 +107,9 @@ class ObjectInstance extends THREE.Object3D {
     get boost() { return this._boost; }
     set boost(b) { this._boost = b; }
 
+	get edgeNoise() { return this._edgeNoise; }
+    set edgeNoise(c) {this._edgeNoise = c; }
+    
     get visible() { return this._visible; }
     set visible(c) {
         this._visible = c;
@@ -212,6 +215,7 @@ class ObjectInstance extends THREE.Object3D {
         this.health = data.hp || 0;
         this.part = data.pr || 0;
         !0 === this.boost && (this.boost = 1);
+        this.edgeNoise = data.en || 0,
         this.team = (data.tm||0);
         this.visible = (data.v===undefined?true:false);
         this.terrain = data.ter||false;
@@ -298,7 +302,7 @@ class ObjectInstance extends THREE.Object3D {
         }
 
         // Reset scale if not scalable
-        if (!this.prefab.scalable) this.size = this.defaultSize; //this is reason 
+        if (!this.prefab.scalable) this.size = this.defaultSize;
     }
 
     clone() {
@@ -318,6 +322,7 @@ class ObjectInstance extends THREE.Object3D {
         if (!this.collidable) data.col = (!this.collidable)?1:0;
         if (this.penetrable) data.pe = 1;
         if (this.boost) data.b = this.boost;
+        if (this.edgeNoise) data.en = this.edgeNoise.round(1);
         if (this.health) data.hp = this.health;
         if (!this.visible) data.v = 1;
 		if (this.part) data.pr = this.part;
@@ -421,6 +426,7 @@ const editor = {
                 update.penetrable = data.pe?true:false; 
                 update.texture = (config.textureIDS[data.t||0])||ObjectInstance.DEFAULT_TEXTURE;
                 update.boost = data.b || 0;
+                update.edgeNoise = data.en || 0;
                 update.health = data.hp || 0;
                 update.part = data.pr || 0;
                 update.team = data.tm || 0;
@@ -489,6 +495,7 @@ const editor = {
             collidable: true,
             penetrable: false,
             boost: 0,
+            edgeNoise: 0,
             health: 0,
             team: 0,
             visible: true
@@ -1220,7 +1227,7 @@ const editor = {
 
             // Parse map
             let map = JSON.parse(mapRaw);
-
+            map = map.states || map.id ? map.map : map;
             // Clear the map
             this.clearMap();
 
@@ -1402,6 +1409,7 @@ const editor = {
         this.objConfig.collidable = instance.collidable;
         this.objConfig.penetrable = instance.penetrable;
         this.objConfig.boost = instance.boost;
+        this.objConfig.edgeNoise = instance.edgeNoise;
         this.objConfig.health = instance.health;
         this.objConfig.team = instance.team;
         this.objConfig.visible = instance.visible;
@@ -1435,6 +1443,11 @@ const editor = {
         }  if (instance.prefab.hasHealth) {
             o = this.objConfigGUI.add(this.objConfig, "health", 0, 500, 10).name("Health").onChange(c => {
                 instance.health = c;
+            });
+            this.objConfigOptions.push(o);
+        }  if (instance.prefab.edgeNoise) {
+            o = this.objConfigGUI.add(this.objConfig, "edgeNoise", -5, 5, .1).name("Edge Noise").onChange(c => {
+                instance.edgeNoise = c;
             });
             this.objConfigOptions.push(o);
         }  if (instance.prefab.hasParticles) {

@@ -108,7 +108,7 @@ module.exports.serverConfig = [{
         bool: !0
     }
 ],
-module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE"],
+module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR"],
 module.exports.textureIDS = ["WALL", "DIRT", "FLOOR", "GRID", "GREY", "DEFAULT", "ROOF", "FLAG", "GRASS", "CHECK"],
 module.exports.objectLimit = 3500,
 module.exports.objectLimitF = 6e3,
@@ -129,8 +129,12 @@ module.exports.crateScale = 6,
 module.exports.stackScale = 6,
 module.exports.barrelScale = 4,
 module.exports.treeScale = 10,
+module.exports.coneScale = 4,
+module.exports.containerScale = 7,
+module.exports.containerrScale = module.exports.containerScale,
+module.exports.grassScale = 32,
 module.exports.vehicleScale = 20,
-module.exports.barrelMlt = 1.5,
+module.exports.barrelMlt = 1,
 module.exports.ladderWidth = 3.2,
 module.exports.ladderScale = .5,
 module.exports.terrainGrid = 8,
@@ -452,7 +456,6 @@ module.exports.prefabs = {
     BARREL: {
         defaultSize: [7, 8, 7],
         dontRound: true,
-        complex: true,
         gen: parent => loadObj(parent, "models/barrel_0.obj", "textures/barrel_0.png", config.barrelScale),
         castShadow: true,
         receiveShadow: true
@@ -463,6 +466,36 @@ module.exports.prefabs = {
         complex: true,
         gen: parent => loadObj(parent, "models/tree_0.obj", "textures/tree_0.png", config.treeScale),
         castShadow: true,
+        receiveShadow: true
+    },
+    CONE: {
+        defaultSize: [4, 7, 4],
+        dontRound: true,
+        complex: true,
+        gen: parent => loadObj(parent, "models/cone_0.obj", "textures/cone_0.png", config.coneScale),
+        castShadow: true,
+        receiveShadow: true
+    },
+    CONTAINER: {
+        defaultSize: [57, 26, 25],
+        dontRound: true,
+        gen: parent => loadObj(parent, "models/container_0.obj", "textures/container_0.png", config.containerScale),
+        castShadow: true,
+        receiveShadow: true
+    },
+    CONTAINERR: {
+        defaultSize: [57, 26, 25],
+        dontRound: true,
+        gen: parent => loadObj(parent, "models/containerr_0.obj", "textures/containerr_0.png", config.containerScale),
+        castShadow: true,
+        receiveShadow: true
+    },
+    GRASS: {
+        defaultSize: [12, 6, 12],
+        complex: true,
+        doubleSide: true,
+        transparent: true,
+        gen: parent => loadObj(parent, "models/grass_0.obj", "textures/grass_0.png", config.grassScale),
         receiveShadow: true
     },
     VEHICLE: {
@@ -525,6 +558,7 @@ module.exports.prefabs = {
         dontRound: true,
         scalable: true,
         canTerrain: true,
+        edgeNoise: true,
         scaleWithSize: true,
         editColor: true,
         editPen: true,
@@ -789,6 +823,9 @@ class ObjectInstance extends THREE.Object3D {
     get boost() { return this._boost; }
     set boost(b) { this._boost = b; }
 
+	get edgeNoise() { return this._edgeNoise; }
+    set edgeNoise(c) {this._edgeNoise = c; }
+    
     get visible() { return this._visible; }
     set visible(c) {
         this._visible = c;
@@ -894,6 +931,7 @@ class ObjectInstance extends THREE.Object3D {
         this.health = data.hp || 0;
         this.part = data.pr || 0;
         !0 === this.boost && (this.boost = 1);
+        this.edgeNoise = data.en || 0,
         this.team = (data.tm||0);
         this.visible = (data.v===undefined?true:false);
         this.terrain = data.ter||false;
@@ -980,7 +1018,7 @@ class ObjectInstance extends THREE.Object3D {
         }
 
         // Reset scale if not scalable
-        if (!this.prefab.scalable) this.size = this.defaultSize; //this is reason 
+        if (!this.prefab.scalable) this.size = this.defaultSize;
     }
 
     clone() {
@@ -1000,6 +1038,7 @@ class ObjectInstance extends THREE.Object3D {
         if (!this.collidable) data.col = (!this.collidable)?1:0;
         if (this.penetrable) data.pe = 1;
         if (this.boost) data.b = this.boost;
+        if (this.edgeNoise) data.en = this.edgeNoise.round(1);
         if (this.health) data.hp = this.health;
         if (!this.visible) data.v = 1;
 		if (this.part) data.pr = this.part;
@@ -1103,6 +1142,7 @@ const editor = {
                 update.penetrable = data.pe?true:false; 
                 update.texture = (config.textureIDS[data.t||0])||ObjectInstance.DEFAULT_TEXTURE;
                 update.boost = data.b || 0;
+                update.edgeNoise = data.en || 0;
                 update.health = data.hp || 0;
                 update.part = data.pr || 0;
                 update.team = data.tm || 0;
@@ -1171,6 +1211,7 @@ const editor = {
             collidable: true,
             penetrable: false,
             boost: 0,
+            edgeNoise: 0,
             health: 0,
             team: 0,
             visible: true
@@ -1902,7 +1943,7 @@ const editor = {
 
             // Parse map
             let map = JSON.parse(mapRaw);
-
+            map = map.states || map.id ? map.map : map;
             // Clear the map
             this.clearMap();
 
@@ -2084,6 +2125,7 @@ const editor = {
         this.objConfig.collidable = instance.collidable;
         this.objConfig.penetrable = instance.penetrable;
         this.objConfig.boost = instance.boost;
+        this.objConfig.edgeNoise = instance.edgeNoise;
         this.objConfig.health = instance.health;
         this.objConfig.team = instance.team;
         this.objConfig.visible = instance.visible;
@@ -2117,6 +2159,11 @@ const editor = {
         }  if (instance.prefab.hasHealth) {
             o = this.objConfigGUI.add(this.objConfig, "health", 0, 500, 10).name("Health").onChange(c => {
                 instance.health = c;
+            });
+            this.objConfigOptions.push(o);
+        }  if (instance.prefab.edgeNoise) {
+            o = this.objConfigGUI.add(this.objConfig, "edgeNoise", -5, 5, .1).name("Edge Noise").onChange(c => {
+                instance.edgeNoise = c;
             });
             this.objConfigOptions.push(o);
         }  if (instance.prefab.hasParticles) {
