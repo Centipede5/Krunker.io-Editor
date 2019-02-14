@@ -143,7 +143,7 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     BARREL: {
-        defaultSize: [7, 8, 7],
+        defaultSize: [6, 8, 6],
         dontRound: true,
         gen: parent => loadObj(parent, "models/barrel_0.obj", "textures/barrel_0.png", config.barrelScale),
         castShadow: true,
