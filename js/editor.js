@@ -108,7 +108,7 @@ module.exports.serverConfig = [{
         bool: !0
     }
 ],
-module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR"],
+module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR", "ACIDBARREL"],
 module.exports.textureIDS = ["WALL", "DIRT", "FLOOR", "GRID", "GREY", "DEFAULT", "ROOF", "FLAG", "GRASS", "CHECK"],
 module.exports.objectLimit = 3500,
 module.exports.objectLimitF = 6e3,
@@ -128,6 +128,7 @@ module.exports.wallW = .8,
 module.exports.crateScale = 6,
 module.exports.stackScale = 6,
 module.exports.barrelScale = 4,
+module.exports.acidbarrelScale = module.exports.barrelScale,
 module.exports.treeScale = 10,
 module.exports.coneScale = 4,
 module.exports.containerScale = 7,
@@ -196,9 +197,6 @@ module.exports.materialDens = {
     flesh: .2,
 default:
     .5
-},
-module.exports.propGlows = {
-    vehicle: !0
 },
 module.exports.nameOffset = .6,
 module.exports.nameOffsetHat = .8,
@@ -460,6 +458,14 @@ module.exports.prefabs = {
         castShadow: true,
         receiveShadow: true
     },
+    ACIDBARREL: {
+        defaultSize: [5, 9, 5],
+        dontRound: true,
+        emiss: true,
+        gen: parent => loadObj(parent, "models/acidbarrel_0.obj", "textures/acidbarrel_0.png", config.acidbarrelScale),
+        castShadow: true,
+        receiveShadow: true
+    },
     TREE: {
         defaultSize: [37, 92, 47],
         dontRound: true,
@@ -502,6 +508,7 @@ module.exports.prefabs = {
         defaultSize: [51, 15, 20],
         dontRound: true,
         complex: true,
+        emiss: true,
         gen: parent => loadObj(parent, "models/vehicle_0.obj", "textures/vehicle_0.png", config.vehicleScale),
         castShadow: true,
         receiveShadow: true
@@ -2265,7 +2272,7 @@ const editor = {
             let rotation = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Assets"].__controllers[1].getValue());
             let yAxis = new THREE.Vector3(0, 1, 0);
             if (fix) {
-                this.objConfigGUI.__controllers[1].setValue(false);
+                if (fix != "RAMP") this.objConfigGUI.__controllers[1].setValue(false);
                 if (fix == "VEHICLE") rotation = 360 - THREE.Math.radToDeg(selected.rotation.y);
             }
 
@@ -2273,7 +2280,7 @@ const editor = {
             let center = this.findCenter(jsp);
             for (let ob of jsp) {
                 ob.p[0] += selected.userData.owner.position.x - center[0];
-                ob.p[1] += selected.userData.owner.position.y - (selected.scale.y / 2) - center[1];
+                ob.p[1] += selected.userData.owner.position.y - (selected.scale.y / 2) - center[1] - (fix == "RAMP" ? 2 : 0);
                 ob.p[2] += selected.userData.owner.position.z - center[2] - (fix == "VEHICLE" ? 0.5 : 0);
                 let obj = ObjectInstance.deserialize(ob);
                 if (rotation > 0) this.rotateAroundPoint(obj.boundingMesh, selected.position, yAxis, THREE.Math.degToRad(rotation));
@@ -2341,7 +2348,19 @@ const editor = {
         }
         return objects;
     },
-    reflect(jsp, dir) {
+    changeAngle(jsp){
+        for (let ob of jsp) {
+            let x = ob.s[0], y = ob.s[2];
+            ob.s[0] = y;
+            ob.s[2] = x;
+            let a = ob.p[0], b = ob.p[2];
+            ob.p[0] = b;
+            ob.p[2] = a;
+        }
+        
+        return jsp;
+    },
+    reflect(jsp, dir, dnwld = true) {
         let obs = jsp.objects ? jsp.objects : (jsp.states || jsp.id ? jsp.map.objects : jsp);
         let reference = this.findCenter(obs);
         for (let ob of obs) {
@@ -2365,7 +2384,7 @@ const editor = {
             jsp.camPos[dir] += 2 * (reference[dir] - jsp.camPos[dir]);
         }
 
-        this.download(JSON.stringify(jsp), 'reflect.txt', 'text/plain');
+        if (dnwld) this.download(JSON.stringify(jsp), 'reflect.txt', 'text/plain');
         return jsp;
     },
     reflectMap() {
@@ -2606,7 +2625,42 @@ const editor = {
             case 'CONTAINERR':
                 this.replaceObject('[{"p":[0,0,0],"s":[57,1,25],"c":11739168},{"p":[0,24,0],"s":[57,2,25],"pe":1,"v":1},{"p":[0,0,-12],"s":[57,25,1],"pe":1,"v":1},{"p":[0,0,12],"s":[57,25,1],"pe":1,"v":1}]', true, selected.userData.owner.objType)
                 break;
+            case 'RAMP':
+                let ramp = selected.userData.owner.serialize();
+                let dir = ramp.d || 0;
+                let x, z, x2, z2, y = ramp.p[1], y2 = ramp.s[1] + ramp.p[1];
+                if (dir !== 0 || dir !== 2) {
+                    ramp = this.changeAngle([{...ramp}])[0];
+                }
+                
+                x = ramp.p[0];
+                z = ramp.p[2];
+                x2 = ramp.s[2] + x;
+                z2 = ramp.s[0];
+
+                let obs = this.mergeObjects(this.plotLine(x, y, x2, y2, z, z2));
+                if (dir === 2) obs = this.reflect(obs, 0, false);
+                if (dir === 1 || dir === 3) obs = this.changeAngle(obs);
+                if (dir === 3) obs = this.reflect(obs, 2, false);
+                this.replaceObject(JSON.stringify(obs), true, selected.userData.owner.objType);
+                break;
         }
+    },
+    plotLine(x0,y0, x1,y1, z0, z1) {
+        let dx = x1 - x0
+        let dy = y1 - y0
+        let D = 2*dy - dx
+        let y = y0
+        let obs = [];
+        for (let x = x0; x < x1; x++) {
+            obs.push({"p":[x, y, z0],"s":[1, 1, z1]});
+            if (D > 0) {
+                y = y + 1;
+                D = D - 2*dx;
+            }
+            D = D + 2*dy;
+        }
+        return obs;
     },
     createPlaceholder() {
         let pos = this.camera.getWorldPosition();

@@ -149,6 +149,14 @@ module.exports.prefabs = {
         castShadow: true,
         receiveShadow: true
     },
+    ACIDBARREL: {
+        defaultSize: [5, 9, 5],
+        dontRound: true,
+        emiss: true,
+        gen: parent => loadObj(parent, "models/acidbarrel_0.obj", "textures/acidbarrel_0.png", config.acidbarrelScale),
+        castShadow: true,
+        receiveShadow: true
+    },
     TREE: {
         defaultSize: [37, 92, 47],
         dontRound: true,
@@ -191,6 +199,7 @@ module.exports.prefabs = {
         defaultSize: [51, 15, 20],
         dontRound: true,
         complex: true,
+        emiss: true,
         gen: parent => loadObj(parent, "models/vehicle_0.obj", "textures/vehicle_0.png", config.vehicleScale),
         castShadow: true,
         receiveShadow: true

@@ -107,7 +107,7 @@ module.exports.serverConfig = [{
         bool: !0
     }
 ],
-module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR"],
+module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR", "ACIDBARREL"],
 module.exports.textureIDS = ["WALL", "DIRT", "FLOOR", "GRID", "GREY", "DEFAULT", "ROOF", "FLAG", "GRASS", "CHECK"],
 module.exports.objectLimit = 3500,
 module.exports.objectLimitF = 6e3,
@@ -127,6 +127,7 @@ module.exports.wallW = .8,
 module.exports.crateScale = 6,
 module.exports.stackScale = 6,
 module.exports.barrelScale = 4,
+module.exports.acidbarrelScale = module.exports.barrelScale,
 module.exports.treeScale = 10,
 module.exports.coneScale = 4,
 module.exports.containerScale = 7,
@@ -195,9 +196,6 @@ module.exports.materialDens = {
     flesh: .2,
 default:
     .5
-},
-module.exports.propGlows = {
-    vehicle: !0
 },
 module.exports.nameOffset = .6,
 module.exports.nameOffsetHat = .8,
