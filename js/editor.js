@@ -2629,14 +2629,13 @@ const editor = {
                 let ramp = selected.userData.owner.serialize();
                 let dir = ramp.d || 0;
                 let x, z, x2, z2, y = ramp.p[1], y2 = ramp.s[1] + ramp.p[1];
-                if (dir !== 0 || dir !== 2) {
-                    ramp = this.changeAngle([{...ramp}])[0];
-                }
+                
+                if (dir !== 0 && dir !== 2) ramp = this.changeAngle([ramp])[0];
                 
                 x = ramp.p[0];
                 z = ramp.p[2];
-                x2 = ramp.s[2] + x;
-                z2 = ramp.s[0];
+                x2 = ramp.s[0] + x;
+                z2 = ramp.s[2];
 
                 let obs = this.mergeObjects(this.plotLine(x, y, x2, y2, z, z2));
                 if (dir === 2) obs = this.reflect(obs, 0, false);
