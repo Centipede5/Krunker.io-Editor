@@ -436,7 +436,6 @@ function generateRamp(x, y, z) {
 // PREFABS:
 module.exports.prefabs = {
     CRATE: {
-        defaultSize: [12, 12, 12],
         dontRound: true,
         gen: parent => loadObj(parent, "models/crate_0.obj", "textures/crate_0.png", config.crateScale),
         dummy: false,
@@ -444,7 +443,6 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     STACK: {
-        defaultSize: [12, 12, 12],
         dontRound: true,
         gen: parent => loadObj(parent, "models/stack_0.obj", "textures/stack_0.png", config.crateScale),
         dummy: false,
@@ -452,14 +450,12 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     BARREL: {
-        defaultSize: [6, 8, 6],
         dontRound: true,
         gen: parent => loadObj(parent, "models/barrel_0.obj", "textures/barrel_0.png", config.barrelScale),
         castShadow: true,
         receiveShadow: true
     },
     ACIDBARREL: {
-        defaultSize: [5, 9, 5],
         dontRound: true,
         emiss: true,
         gen: parent => loadObj(parent, "models/acidbarrel_0.obj", "textures/acidbarrel_0.png", config.acidbarrelScale),
@@ -467,7 +463,6 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     TREE: {
-        defaultSize: [37, 92, 47],
         dontRound: true,
         complex: true,
         gen: parent => loadObj(parent, "models/tree_0.obj", "textures/tree_0.png", config.treeScale),
@@ -475,7 +470,6 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     CONE: {
-        defaultSize: [4, 7, 4],
         dontRound: true,
         complex: true,
         gen: parent => loadObj(parent, "models/cone_0.obj", "textures/cone_0.png", config.coneScale),
@@ -483,21 +477,18 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     CONTAINER: {
-        defaultSize: [57, 26, 25],
         dontRound: true,
         gen: parent => loadObj(parent, "models/container_0.obj", "textures/container_0.png", config.containerScale),
         castShadow: true,
         receiveShadow: true
     },
     CONTAINERR: {
-        defaultSize: [57, 26, 25],
         dontRound: true,
         gen: parent => loadObj(parent, "models/containerr_0.obj", "textures/containerr_0.png", config.containerScale),
         castShadow: true,
         receiveShadow: true
     },
     GRASS: {
-        defaultSize: [12, 6, 12],
         complex: true,
         doubleSide: true,
         transparent: true,
@@ -505,7 +496,6 @@ module.exports.prefabs = {
         receiveShadow: true
     },
     VEHICLE: {
-        defaultSize: [51, 15, 20],
         dontRound: true,
         complex: true,
         emiss: true,
@@ -780,18 +770,6 @@ class ObjectInstance extends THREE.Object3D {
 
     get size() { return this.boundingMesh.scale.toArray(); }
     set size(v) { this.boundingMesh.scale.fromArray(v); }
-
-    get defaultSize() {
-        if (this.prefab.defaultSize) return this.prefab.defaultSize;
-
-        // Calculate box from this object
-        let bb = ObjectInstance.tmpBox3.setFromObject(this);
-        return [
-            bb.max.x - bb.min.x,
-            bb.max.y - bb.min.y,
-            bb.max.z - bb.min.z
-        ];
-    }
     
     get part() { return this._part; }
     set part(t) { this._part = t; }
@@ -899,6 +877,7 @@ class ObjectInstance extends THREE.Object3D {
             throw "Invalid type: " + data.id;
         }
         this.objType = data.id;
+        this.defaultSize = [1, 1, 1];
 
         // Create bounding mesh; this will need to be manually added to the scene
         this.boundingMesh = new THREE.Mesh(ObjectInstance.boundingMeshGeometry, ObjectInstance.boundingMeshMaterial);
@@ -954,15 +933,24 @@ class ObjectInstance extends THREE.Object3D {
         } else if (this.prefab.gen) {
             prefabPromises.push(this.prefab.gen(this, this.defaultMaterial));
         }
-
+        
         Promise.all(prefabPromises).then(() => {
             this.traverse(child => {
                 child.castShadow = this.prefab.castShadow;
                 child.receiveShadow = this.prefab.receiveShadow;
             });
-            this.size = data.s || this.defaultSize;
+            if (this.prefab.defaultSize) {
+                this.defaultSize = this.prefab.defaultSize;
+            } else {
+                let t = this.rotation.clone();
+                this.rotation.set(0, 0, 0);
+                let bb = ObjectInstance.tmpBox3.setFromObject(this);
+                this.rotation.copy(t);
+                this.defaultSize = [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z];
+            }
+            this.size = data.s || this.defaultSize
         });
-
+        
         // Misc
         this.previousScale = new THREE.Vector3();
     }

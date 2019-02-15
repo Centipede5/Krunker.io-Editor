@@ -57,18 +57,6 @@ class ObjectInstance extends THREE.Object3D {
 
     get size() { return this.boundingMesh.scale.toArray(); }
     set size(v) { this.boundingMesh.scale.fromArray(v); }
-
-    get defaultSize() {
-        if (this.prefab.defaultSize) return this.prefab.defaultSize;
-
-        // Calculate box from this object
-        let bb = ObjectInstance.tmpBox3.setFromObject(this);
-        return [
-            bb.max.x - bb.min.x,
-            bb.max.y - bb.min.y,
-            bb.max.z - bb.min.z
-        ];
-    }
     
     get part() { return this._part; }
     set part(t) { this._part = t; }
@@ -176,6 +164,7 @@ class ObjectInstance extends THREE.Object3D {
             throw "Invalid type: " + data.id;
         }
         this.objType = data.id;
+        this.defaultSize = [1, 1, 1];
 
         // Create bounding mesh; this will need to be manually added to the scene
         this.boundingMesh = new THREE.Mesh(ObjectInstance.boundingMeshGeometry, ObjectInstance.boundingMeshMaterial);
@@ -231,15 +220,24 @@ class ObjectInstance extends THREE.Object3D {
         } else if (this.prefab.gen) {
             prefabPromises.push(this.prefab.gen(this, this.defaultMaterial));
         }
-
+        
         Promise.all(prefabPromises).then(() => {
             this.traverse(child => {
                 child.castShadow = this.prefab.castShadow;
                 child.receiveShadow = this.prefab.receiveShadow;
             });
-            this.size = data.s || this.defaultSize;
+            if (this.prefab.defaultSize) {
+                this.defaultSize = this.prefab.defaultSize;
+            } else {
+                let t = this.rotation.clone();
+                this.rotation.set(0, 0, 0);
+                let bb = ObjectInstance.tmpBox3.setFromObject(this);
+                this.rotation.copy(t);
+                this.defaultSize = [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z];
+            }
+            this.size = data.s || this.defaultSize
         });
-
+        
         // Misc
         this.previousScale = new THREE.Vector3();
     }
