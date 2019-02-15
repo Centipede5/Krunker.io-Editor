@@ -1184,10 +1184,10 @@ const editor = {
         this.mapConfig = {
             name: "New Krunker Map",
             modURL: "",
-            ambient: 0x97a0a8,
-            light: 0xf2f8fc,
-            sky: 0xdce8ed,
-            fog: 0x8d9aa0,
+            ambient: '#97a0a8',
+            light: '#f2f8fc',
+            sky: '#dce8ed',
+            fog: '#8d9aa0',
             fogD: 900
         };
 
@@ -1199,8 +1199,8 @@ const editor = {
 
         this.objConfig = {
             texture: "DEFAULT",
-            color: 0xffffff,
-            emissive: 0x000000,
+            color: '#ffffff',
+            emissive: '#000000',
             opacity: 1,
             part: 0,
             collidable: true,
@@ -1296,9 +1296,11 @@ const editor = {
         });
 
         let createGUI = gui.addFolder("Create Object");
+        let modelsGUI = createGUI.addFolder("Models")
+        let toolsGUI = createGUI.addFolder("Tools");
         for (let id in prefabs) {
             if (!prefabs.hasOwnProperty(id)) continue;
-            createGUI.add(this.createObjects, id).name(this.formatConstName(id));
+            (prefabs[id].gen ? modelsGUI : (prefabs[id].tool ? toolsGUI : createGUI)).add(this.createObjects, id).name(this.formatConstName(id));
         }
         createGUI.open();
 
