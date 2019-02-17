@@ -1004,13 +1004,13 @@ const editor = {
                     break;
                 case 8:
                 case 46: // delete, backspace
-                    this.removeObject();
+                    this.objectSelected(true) ? this.removeGroup() : this.removeObject();
                     break;
                 case 80: // p
                     this.createPlaceholder();
                     break;
                 case 82: // r
-                    if (ev.shiftKey) this.duplicateObject();
+                    if (ev.shiftKey) this.objectSelected(true) ? this.duplicateGroup() : this.duplicateObject();
                     break;
                 case 67: //ctrl c
                     if (ev.ctrlKey) this.copyObjects();
@@ -1552,6 +1552,10 @@ const editor = {
                 if (fix != "RAMP") this.objConfigGUI.__controllers[1].setValue(false);
                 if (fix == "VEHICLE") rotation = 360 - THREE.Math.radToDeg(selected.rotation.y);
             }
+            
+            if ([90, 180, 270].includes(rotation)) {
+                jsp = this.rotateObjects(jsp, rotation);
+            }
 
             let objectIds = [];
             let center = this.findCenter(jsp);
@@ -1560,12 +1564,12 @@ const editor = {
                 ob.p[1] += selected.userData.owner.position.y - (selected.scale.y / 2) - center[1] - (fix == "RAMP" ? 2 : 0);
                 ob.p[2] += selected.userData.owner.position.z - center[2] - (fix == "VEHICLE" ? 0.5 : 0);
                 let obj = ObjectInstance.deserialize(ob);
-                if (rotation > 0) this.rotateAroundPoint(obj.boundingMesh, selected.position, yAxis, THREE.Math.degToRad(rotation));
+                if (rotation > 0 && ![90, 180, 270].includes(rotation)) this.rotateAroundPoint(obj.boundingMesh, selected.position, yAxis, THREE.Math.degToRad(rotation));
                 if (autoGroup) objectIds.push(obj.boundingMesh.uuid);
                 this.addObject(obj, skip);
             }
             if (autoGroup) {
-                let groupBox = this.createBoundingBox(selected.position.x, selected.position.y, selected.position.z, center[3], center[4], center[5], THREE.Math.degToRad(rotation));
+                let groupBox = this.createBoundingBox(selected.position.x, selected.position.y, selected.position.z, center[3], center[4], center[5], [90, 180, 270].includes(rotation) ?  0 : THREE.Math.degToRad(rotation));
                 this.addObject(groupBox);
                 this.createGroup(groupBox.boundingMesh, objectIds);
             }
@@ -1578,6 +1582,14 @@ const editor = {
     createBoundingBox(x, y, z, sX, sY, sZ, rY) {
         let obph = {p: [x, y, z], s: [sX + 1, sY + 1, sZ + 1], r: [0, rY, 0], e: this.settings.phEmissive, o: this.settings.phOpacity, c: this.settings.phColor, col: 1};
         return ObjectInstance.deserialize(obph);
+    },
+    rotateObjects(jsp, deg) {
+        switch (deg) {
+            case 90: return this.changeAngle(jsp);
+            case 180: return this.reflectAngle(jsp);
+            case 270: return this.reflectAngle(this.changeAngle(jsp));
+        }
+        return jsp;
     },
     findCenter(jsp) {
         let yMin = jsp[0].p[1],
@@ -1635,6 +1647,13 @@ const editor = {
             ob.p[2] = a;
         }
         
+        return jsp;
+    },
+    reflectAngle(jsp) {
+        for (let ob of jsp) {
+            ob.p[0] = -1 * ob.p[0];
+            ob.p[2] = -1 * ob.p[2];
+        }
         return jsp;
     },
     reflect(jsp, dir, dnwld = true) {
