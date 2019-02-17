@@ -342,6 +342,17 @@ module.exports.prefabs = {
         castShadow: false,
         receiveShadow: false
     },
+    PLACEHOLDER: {
+        defaultSize: [10, 10, 10],
+        scalable: true,
+        noTexture: true,
+        noExport: true,
+        opacity: 0.1,
+        lineCol: 0x000000,
+        tool: true,
+        genGeo: async (size, amb) => generateCube(...size, amb),
+        stepSrc: "a"
+    },
 };
 
 // TEXTURE PREFABS:

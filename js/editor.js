@@ -108,7 +108,7 @@ module.exports.serverConfig = [{
         bool: !0
     }
 ],
-module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR", "ACIDBARREL"],
+module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR", "ACIDBARREL", "PLACEHOLDER"],
 module.exports.textureIDS = ["WALL", "DIRT", "FLOOR", "GRID", "GREY", "DEFAULT", "ROOF", "FLAG", "GRASS", "CHECK"],
 module.exports.objectLimit = 3500,
 module.exports.objectLimitF = 6e3,
@@ -651,6 +651,17 @@ module.exports.prefabs = {
         castShadow: false,
         receiveShadow: false
     },
+    PLACEHOLDER: {
+        defaultSize: [10, 10, 10],
+        scalable: true,
+        noTexture: true,
+        noExport: true,
+        opacity: 0.1,
+        lineCol: 0x000000,
+        tool: true,
+        genGeo: async (size, amb) => generateCube(...size, amb),
+        stepSrc: "a"
+    },
 };
 
 // TEXTURE PREFABS:
@@ -770,9 +781,11 @@ class ObjectInstance extends THREE.Object3D {
 
     get size() { return this.boundingMesh.scale.toArray(); }
     set size(v) { this.boundingMesh.scale.fromArray(v); }
-    
+
     get part() { return this._part; }
-    set part(t) { this._part = t; }
+    set part(part) {
+        this._part = part;
+    }
 
     get texture() { return this._texture; }
     set texture(texture) {
@@ -805,12 +818,12 @@ class ObjectInstance extends THREE.Object3D {
         if (this.prefab.editPen) this._penetrable = c;
     }
 
-    get boost() { return this._boost; }
-    set boost(b) { this._boost = b; }
+    get boost() { return this._boost }
+    set boost(b) { this._boost = b }
 
-	get edgeNoise() { return this._edgeNoise; }
-    set edgeNoise(c) {this._edgeNoise = c; }
-    
+    get edgeNoise() { return this._edgeNoise }
+    set edgeNoise(b) { this._edgeNoise = b }
+
     get visible() { return this._visible; }
     set visible(c) {
         this._visible = c;
@@ -913,11 +926,11 @@ class ObjectInstance extends THREE.Object3D {
         else this.texture = (config.textureIDS[data.t||0])||ObjectInstance.DEFAULT_TEXTURE;
         this.collidable = (data.col===undefined?true:false);
         this.penetrable = (data.pe?true:false);
-        this.boost = data.b || 0;
-        this.health = data.hp || 0;
-        this.part = data.pr || 0;
-        !0 === this.boost && (this.boost = 1);
-        this.edgeNoise = data.en || 0,
+        this.boost = (data.b||0);
+        if (this.boost === true) this.boost = 1;
+        this.edgeNoise = (data.en||0);
+        this.health = (data.hp||0);
+        this.part = (data.pr||0);
         this.team = (data.tm||0);
         this.visible = (data.v===undefined?true:false);
         this.terrain = data.ter||false;
@@ -1224,15 +1237,12 @@ const editor = {
             gridSpacing: 10,
             objectHighlight: false,
             mergeVoxels: false,
-            phOpacity: 0.3,
-            phEmissive: '#FFFFFF',
-            phColor:'#FFFFFF',
             speedNormal: 70,
             speedSprint: 180,
             voxelSize: 10,
             imageSize: 1,
-            assetAutoGroup: false,
-            preserveFolderState: false,
+            assetAutoGroup: true,
+            preserveFolderState: true,
         };
         this.copy = null;
         this.objGroups = [];
@@ -1299,7 +1309,7 @@ const editor = {
         let modelsGUI = createGUI.addFolder("Models")
         let toolsGUI = createGUI.addFolder("Tools");
         for (let id in prefabs) {
-            if (!prefabs.hasOwnProperty(id)) continue;
+            if (!prefabs.hasOwnProperty(id) || prefabs[id].noExport) continue;
             (prefabs[id].gen ? modelsGUI : (prefabs[id].tool ? toolsGUI : createGUI)).add(this.createObjects, id).name(this.formatConstName(id));
         }
         createGUI.open();
@@ -1498,11 +1508,6 @@ const editor = {
         speedMenu.add(this.settings, "speedNormal").name("Normal").onChange(t => {this.setSettings('speedNormal', Math.abs(t) || this.defaultSettings.speedNormal)});      
         speedMenu.add(this.settings, "speedSprint").name("Sprinting").onChange(t => {this.setSettings('speedSprint', Math.abs(t) || this.defaultSettings.speedSprint)});
         speedMenu.add(options, "speedReset").name("Reset Speed");
-
-        let placeholderMenu = settingsMenu.addFolder('Placeholder');
-        placeholderMenu.add(this.settings, "phOpacity", 0, 1, .1).name("Opacity").onChange(t => {this.setSettings('phOpacity', t)});
-        placeholderMenu.addColor(this.settings, "phEmissive",).name("Emissive").onChange(t => {this.setSettings('phEmissive', t)});
-        placeholderMenu.addColor(this.settings, "phColor").name("Color").onChange(t => {this.setSettings('phColor', t)});
 
         settingsMenu.add(options, "reset").name("Reset All Settings");    
     },
@@ -1905,7 +1910,7 @@ const editor = {
         let objects = [];
         let spawns = [];
         let camPos = [0, 0, 0];
-        for (let instance of this.objInstances) {
+        for (let instance of this.objInstances.filter(x => !x.prefab.noExport)) {
             if (instance.objType === "SPAWN_POINT") {
                 var tmpArray = [instance.pos[0], instance.pos[1], instance.pos[2]];
                 if (instance.team) tmpArray.push(parseInt(instance.team));
@@ -2119,6 +2124,7 @@ const editor = {
         this.objConfig.rot = instance.rot;
         this.objConfig.size = instance.size;
         this.objConfig.texture = instance.texture;
+        this.objConfig.part = instance.part;
         this.objConfig.collidable = instance.collidable;
         this.objConfig.penetrable = instance.penetrable;
         this.objConfig.boost = instance.boost;
@@ -2149,30 +2155,36 @@ const editor = {
             });
             this.objConfigOptions.push(o);
         }  if (instance.prefab.boostable) {
-            o = this.objConfigGUI.add(this.objConfig, "boost", -10, 10, .1).name("Boost").onChange(c => {
+            o = this.objConfigGUI.add(this.objConfig, "boost", -10, 10, 0.1).name("Boost").listen().onChange(c => {
                 instance.boost = c;
             });
             this.objConfigOptions.push(o);
-        }  if (instance.prefab.hasHealth) {
-            o = this.objConfigGUI.add(this.objConfig, "health", 0, 500, 10).name("Health").onChange(c => {
-                instance.health = c;
-            });
-            this.objConfigOptions.push(o);
-        }  if (instance.prefab.edgeNoise) {
-            o = this.objConfigGUI.add(this.objConfig, "edgeNoise", -5, 5, .1).name("Edge Noise").onChange(c => {
+        } if (instance.prefab.edgeNoise) {
+            o = this.objConfigGUI.add(this.objConfig, "edgeNoise", -5, 5, 0.1).name("Edge Noise").listen().onChange(c => {
                 instance.edgeNoise = c;
             });
             this.objConfigOptions.push(o);
-        }  if (instance.prefab.hasParticles) {
-            let options = {
-                Snow: 0,
-                Rain: 1,
-                Fog: 2
-            };
-            o = this.objConfigGUI.add(this.objConfig, "part").options(options).name("Type").listen().onChange(c => {
-                instance.part = c;
+        }
+
+        // HEALTH:
+        if (instance.prefab.hasHealth) {
+            o = this.objConfigGUI.add(this.objConfig, "health", 0, 500, 10).name("Health").onChange(h => {
+                instance.health = h;
             });
-            this.objConfigOptions.push(o); 
+            this.objConfigOptions.push(o);
+        }
+
+        // PARTICLES:
+        if (instance.prefab.hasParticles) {
+            let options = {
+                "Snow": 0,
+                "Rain": 1,
+                "Fog": 2
+            };
+            o = this.objConfigGUI.add(this.objConfig, "part").options(options).name("Type").listen().onChange(prt => {
+                instance.part = prt;
+            });
+            this.objConfigOptions.push(o);
         }
 
         // COLOR:
@@ -2254,7 +2266,7 @@ const editor = {
     replaceObject(str, skip = false, fix = false, autoGroup = false) {
         let selected = this.objectSelected();
         if (selected) {
-            if (!fix) this.removeObject();
+            if (!fix && !autoGroup) this.removeObject();
 
             let jsp = JSON.parse(str);
             jsp = jsp.objects ? jsp.objects : (jsp.states || jsp.id ? jsp.map.objects : jsp);
@@ -2270,7 +2282,7 @@ const editor = {
                 jsp = this.rotateObjects(jsp, rotation);
             }
 
-            let objectIds = [];
+            let objects = [];
             let center = this.findCenter(jsp);
             for (let ob of jsp) {
                 ob.p[0] += selected.userData.owner.position.x - center[0];
@@ -2278,14 +2290,10 @@ const editor = {
                 ob.p[2] += selected.userData.owner.position.z - center[2] - (fix == "VEHICLE" ? 0.5 : 0);
                 let obj = ObjectInstance.deserialize(ob);
                 if (rotation > 0 && ![90, 180, 270].includes(rotation)) this.rotateAroundPoint(obj.boundingMesh, selected.position, yAxis, THREE.Math.degToRad(rotation));
-                if (autoGroup) objectIds.push(obj.boundingMesh.uuid);
+                if (autoGroup) objects.push(obj);
                 this.addObject(obj, skip);
             }
-            if (autoGroup) {
-                let groupBox = this.createBoundingBox(selected.position.x, selected.position.y, selected.position.z, center[3], center[4], center[5], [90, 180, 270].includes(rotation) ?  0 : THREE.Math.degToRad(rotation));
-                this.addObject(groupBox);
-                this.createGroup(groupBox.boundingMesh, objectIds);
-            }
+            if (autoGroup) this.createGroup(selected, objects, [90, 180, 270].includes(rotation) ? 0 : THREE.Math.degToRad(rotation));
             if (skip && !autoGroup) this.hideTransform();
             this.advancedGUI.__folders["Advanced"].__folders["Assets"].__controllers[1].setValue(0);
         } else {
@@ -2293,7 +2301,7 @@ const editor = {
         }
     },
     createBoundingBox(x, y, z, sX, sY, sZ, rY) {
-        let obph = {p: [x, y, z], s: [sX + 1, sY + 1, sZ + 1], r: [0, rY, 0], e: this.settings.phEmissive, o: this.settings.phOpacity, c: this.settings.phColor, col: 1};
+        let obph = {p: [x, y, z], s: [sX + 1, sY + 1, sZ + 1], r: [0, rY, 0], id: 21};
         return ObjectInstance.deserialize(obph);
     },
     rotateObjects(jsp, deg) {
@@ -2430,7 +2438,7 @@ const editor = {
             maxZ: selected.position.z + (selected.scale.z / 2), 
         };
         let intersect = [];
-        let obbys = [];
+        let obs = [];
         for (let ob of this.objInstances) {
             if (ob.boundingMesh.uuid == selected.uuid) continue;
             if (this.intersect({
@@ -2441,29 +2449,21 @@ const editor = {
                     maxY: ob.boundingMesh.position.y + ob.boundingMesh.scale.y, 
                     maxZ: ob.boundingMesh.position.z + (ob.boundingMesh.scale.z / 2)
                 }, pos)) {
-                if (!group) obbys.push(ob);
-                intersect.push(group ? ob.boundingMesh.uuid : ob.serialize());
+                obs.push(ob);
+                intersect.push(ob.serialize());
             }
         }
 
         if (!group) {
-            if (cut && obbys.length && !group) {
-                for (let i = 0; i < obbys.length; i++) {
-                    this.removeObject(obbys[i]);
-                }
+            if (cut && obs.length && !group) {
+                for (let i = 0; i < obs.length; i++) 
+                    this.removeObject(obs[i]);
             }
 
-            if (ret) {
-                return intersect;
-            } else {
-                this.copy = JSON.stringify(intersect);
-            }
+            if (ret) return intersect;
+            this.copy = JSON.stringify(intersect);
         } else {
-            selected.userData.owner.emissive = 16777215;
-            selected.userData.owner.opacity = 0.5;
-            selected.userData.owner.color = 0;
-            this.objConfigGUI.__controllers[1].setValue(false);
-            this.createGroup(selected, intersect);
+            this.createGroup(selected, obs);
         }
     },
     exportGroup(full = false) {
@@ -2495,13 +2495,24 @@ const editor = {
         if (!this.objectSelected()) return alert('Select a object you would like to replace with your copied objects');
         this.replaceObject(this.copy, true);
     },
-    createGroup(owner, objects) {
-        this.objGroups[owner.uuid] = {
-            owner: owner, 
-            pos: {...owner.position}, 
-            scale: {...owner.scale},
-            rotY: owner.rotation.y,
-            objects: objects
+    createGroup(owner, objects, rot = 0) {
+        let ids = [];
+        let data = [];
+        for (let ob of objects) {
+            ids.push(ob.boundingMesh.uuid);
+            data.push(ob.serialize());
+        }
+        let center = this.findCenter(this.applyCenter(data));
+        let groupBox = this.createBoundingBox(owner.position.x, owner.position.y, owner.position.z, center[3], center[4], center[5], rot);
+        this.removeObject();
+        this.addObject(groupBox);
+        
+        this.objGroups[groupBox.boundingMesh.uuid] = {
+            owner: groupBox.boundingMesh, 
+            pos: {...groupBox.boundingMesh.position}, 
+            scale: {...groupBox.boundingMesh.scale},
+            rotY: groupBox.boundingMesh.rotation.y,
+            objects: ids
         };
     },
     removeGroup() {
@@ -2527,19 +2538,18 @@ const editor = {
 
         let group = this.objGroups[selected.uuid];
         let obs = this.objInstances.filter(ob => group.objects.includes(ob.boundingMesh.uuid));
-        let newObs = [];
+        let intersect = [];
 
         for (let ob of obs) {
             let newOb = ObjectInstance.deserialize(ob.serialize());
-            newObs.push(newOb.boundingMesh.uuid);
+            intersect.push(newOb);
             this.addObject(newOb);
         }
-
-        let groupBox = ObjectInstance.deserialize(selected.userData.owner.serialize());
-        this.addObject(groupBox);
-
+        
+        let groupBox = this.addObject(selected.userData.owner.clone());
         selected = this.objectSelected();
-        this.createGroup(selected, newObs);
+
+        this.createGroup(selected, intersect);
     },
     updateGroups() {
         if (Object.keys(this.objGroups).length == 0) return;
@@ -2661,7 +2671,7 @@ const editor = {
         let y = y0
         let obs = [];
         for (let x = x0; x < x1; x++) {
-            obs.push({"p":[x, y, z0],"s":[1, 1, z1]});
+            obs.push({"p":[x, y, z0],"s":[1, 1, obs.length % 5 == 0 ? z1 : (z1 - 2)]});
             if (D > 0) {
                 y = y + 1;
                 D = D - 2*dx;
@@ -2672,8 +2682,7 @@ const editor = {
     },
     createPlaceholder() {
         let pos = this.camera.getWorldPosition();
-        let obph = {p: [pos.x, pos.y - 10, pos.z], s: [10, 10, 10], e: this.settings.phEmissive, o: this.settings.phOpacity, c: this.settings.phColor, col: 1};
-        this.addObject(ObjectInstance.deserialize(obph));
+        this.addObject(ObjectInstance.deserialize({p: [pos.x, pos.y - 10, pos.z], s: [10, 10, 10], id: 21}));
     },
     colorizeMap(input = false, gold = false, rand = false) {
         if (this.settings.backupMap) this.exportMap();
@@ -2682,7 +2691,6 @@ const editor = {
 
         for (let ob of this.objInstances) {
             if (input) ob.color = input.length > 1 ? input[Math.floor(Math.random() * input.length)] : input[0];
-            if (gold) ob.color = "#FFDF00", ob.emissive = "#D4AF37";
             if (rand) ob.color = this.getRandomColor();
         }
     },
@@ -2976,15 +2984,14 @@ const editor = {
     rotateAroundPoint(obj, point, axis, theta, pointIsWorld) {
         pointIsWorld = (pointIsWorld === undefined)? false : pointIsWorld;
 
-        if(pointIsWorld) obj.parent.localToWorld(obj.position); // compensate for world coordinate
+        if(pointIsWorld) obj.parent.localToWorld(obj.position);
 
-        obj.position.sub(point); // remove the offset
-        obj.position.applyAxisAngle(axis, theta); // rotate the POSITION
-        obj.position.add(point); // re-add the offset
+        obj.position.sub(point);
+        obj.position.applyAxisAngle(axis, theta);
+        obj.position.add(point);
 
-        if(pointIsWorld) obj.parent.worldToLocal(obj.position); // undo world coordinates compensation
-
-        obj.rotateOnAxis(axis, theta); // rotate the OBJECT
+        if(pointIsWorld) obj.parent.worldToLocal(obj.position);
+        obj.rotateOnAxis(axis, theta);
     },
     intersect(a, b) {
         return (a.minX <= b.maxX && a.maxX >= b.minX) &&
