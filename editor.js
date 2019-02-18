@@ -304,7 +304,7 @@ class ObjectInstance extends THREE.Object3D {
             // Handle new size
             if (this.prefab.genGeo) {
                 // Generate geometry with new size
-                this.prefab.genGeo(this.size, this.prefab.fluid ? [this.flSeg, this.flDepth, this.flMlt] : 1).then(geo => {
+                this.prefab.genGeo(this.size, this.prefab.experimental ? [this.flSeg, this.flDepth, this.flMlt] : 1).then(geo => {
                     this.defaultMesh.geometry = geo;
                 });
             } else if (this.prefab.scaleWithSize) {
