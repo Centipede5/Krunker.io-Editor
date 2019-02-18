@@ -348,9 +348,11 @@ class ObjectInstance extends THREE.Object3D {
         if (this.boost) data.b = this.boost;
         if (this.edgeNoise) data.en = this.edgeNoise.round(1);
         if (this.health) data.hp = this.health;
-        if (this.flSeg) data.fs = this.flSeg;
-        if (this.flDepth) data.fd = this.flDepth;
-        if (this.flMlt) data.fm = this.flMlt;
+        if (this.prefab.fluid) {
+            if (this.flSeg) data.fs = this.flSeg;
+            if (this.flDepth) data.fd = this.flDepth;
+            if (this.flMlt) data.fm = this.flMlt;
+        }
         if (!this.visible) data.v = 1;
 		if (this.part) data.pr = this.part;
         let rot = this.rot;
