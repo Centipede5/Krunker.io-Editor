@@ -438,17 +438,6 @@ function generateRamp(x, y, z) {
     return geometry;
 }
 
-function generateFluid(w, l, s = 25, d = 25, m = 2) {
-    let geometry = new THREE.PlaneGeometry( w, l, s - 1, d - 1 );
-    geometry.rotateX( - Math.PI / 2 );
-    
-    let len = geometry.vertices.length;
-    for (let i = 0; i < len; i ++) {
-        geometry.vertices[i].y =  m * Math.sin( i / 2 );
-    }
-    return geometry;
-}
-
 // PREFABS:
 module.exports.prefabs = {
     CRATE: {
