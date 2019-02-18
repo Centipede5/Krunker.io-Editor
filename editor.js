@@ -1073,7 +1073,7 @@ const editor = {
 
             this.raycaster.setFromCamera(rayPoint, this.camera);
 
-            let intersects = this.raycaster.intersectObjects(this.boundingMeshes);
+            let intersects = this.raycaster.intersectObjects(this.boundingMeshes, true);
             if (intersects.length > 0) {
                 let selected = intersects[0].object.userData.owner;
                 this.setHighlight(selected);

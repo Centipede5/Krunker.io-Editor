@@ -124,6 +124,55 @@ function generateRamp(x, y, z) {
     return geometry;
 }
 
+function generateFieldTurf(w, l, src) {
+    var texture = new THREE.TextureLoader().load(src);
+    var material	= new THREE.MeshPhongMaterial({
+		map		: texture,
+		color		: 'grey',
+		emissive	: 'darkgreen',
+		alphaTest	: 0.7,
+	})
+    var nTufts	= 100
+	var positions	= new Array(nTufts)
+	for(var i = 0; i < nTufts; i++){
+		var position	= new THREE.Vector3()
+		position.x	= (Math.random()-0.5)*20
+		position.z	= (Math.random()-0.5)*20
+		positions[i]	= position
+	}
+	var geometry	= new THREE.PlaneGeometry(w,l)
+	geometry.applyMatrix( new THREE.Matrix4().makeTranslation( 0, geometry.height/2, 0 ) );
+    
+	geometry.faces.forEach(function(face){
+		face.vertexNormals.forEach(function(normal){
+			normal.set(0.0,1.0,0.0).normalize()
+		})
+	})
+
+	var mergedGeo	= new THREE.Geometry();
+	for (var i = 0; i < positions.length; i++) {
+		var position	= positions[i]			
+		var baseAngle	= Math.PI*2*Math.random()
+
+		var nPlanes	= 2
+		for(var j = 0; j < nPlanes; j++){
+			var angle	= baseAngle+j*Math.PI/nPlanes
+
+			// First plane
+			var object3d	= new THREE.Mesh(geometry, material)
+			object3d.rotateY(angle)
+			object3d.position.copy(position)
+			THREE.GeometryUtils.merge( mergedGeo, object3d );
+
+			var object3d	= new THREE.Mesh(geometry, material)
+			object3d.rotateY(angle+Math.PI)
+			object3d.position.copy(position)
+			THREE.GeometryUtils.merge( mergedGeo, object3d );
+		}
+	}
+    return mergedGeo;
+}
+
 // PREFABS:
 module.exports.prefabs = {
     CRATE: {
@@ -352,6 +401,25 @@ module.exports.prefabs = {
         tool: true,
         genGeo: async (size, amb) => generateCube(...size, amb),
         stepSrc: "a"
+    },
+    TURF: {
+        defaultSize: [4, 0.01, 4],
+        dontRound: true,
+        scalable: true,
+        canTerrain: true,
+        edgeNoise: true,
+        scaleWithSize: true,
+        editColor: true,
+        editPen: true,
+        editEmissive: true,
+        editOpac: true,
+        hideBoundingBox: false,
+        texturable: true,
+        genGeo: async size => generateFieldTurf(size[0], size[2], "textures/grass_1.png"),
+        stepSrc: "a",
+        dummy: false,
+        castShadow: true,
+        receiveShadow: true
     },
 };
 
