@@ -108,7 +108,7 @@ module.exports.serverConfig = [{
         bool: !0
     }
 ],
-module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR", "ACIDBARREL", "PLACEHOLDER"],
+module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR", "ACIDBARREL", "PLACEHOLDER", "FLUID"],
 module.exports.textureIDS = ["WALL", "DIRT", "FLOOR", "GRID", "GREY", "DEFAULT", "ROOF", "FLAG", "GRASS", "CHECK"],
 module.exports.objectLimit = 3500,
 module.exports.objectLimitF = 6e3,
@@ -433,53 +433,15 @@ function generateRamp(x, y, z) {
     return geometry;
 }
 
-function generateFieldTurf(w, l, src) {
-    var texture = new THREE.TextureLoader().load(src);
-    var material	= new THREE.MeshPhongMaterial({
-		map		: texture,
-		color		: 'grey',
-		emissive	: 'darkgreen',
-		alphaTest	: 0.7,
-	})
-    var nTufts	= 100
-	var positions	= new Array(nTufts)
-	for(var i = 0; i < nTufts; i++){
-		var position	= new THREE.Vector3()
-		position.x	= (Math.random()-0.5)*20
-		position.z	= (Math.random()-0.5)*20
-		positions[i]	= position
-	}
-	var geometry	= new THREE.PlaneGeometry(w,l)
-	geometry.applyMatrix( new THREE.Matrix4().makeTranslation( 0, geometry.height/2, 0 ) );
+function generateFluid(w, l, s = 128, d = 128) {
+    let geometry = new THREE.PlaneGeometry( w, l, s - 1, d - 1 );
+    geometry.rotateX( - Math.PI / 2 );
     
-	geometry.faces.forEach(function(face){
-		face.vertexNormals.forEach(function(normal){
-			normal.set(0.0,1.0,0.0).normalize()
-		})
-	})
-
-	var mergedGeo	= new THREE.Geometry();
-	for (var i = 0; i < positions.length; i++) {
-		var position	= positions[i]			
-		var baseAngle	= Math.PI*2*Math.random()
-
-		var nPlanes	= 2
-		for(var j = 0; j < nPlanes; j++){
-			var angle	= baseAngle+j*Math.PI/nPlanes
-
-			// First plane
-			var object3d	= new THREE.Mesh(geometry, material)
-			object3d.rotateY(angle)
-			object3d.position.copy(position)
-			THREE.GeometryUtils.merge( mergedGeo, object3d );
-
-			var object3d	= new THREE.Mesh(geometry, material)
-			object3d.rotateY(angle+Math.PI)
-			object3d.position.copy(position)
-			THREE.GeometryUtils.merge( mergedGeo, object3d );
-		}
-	}
-    return mergedGeo;
+    let len = geometry.vertices.length;
+    for (let i = 0; i < len; i ++) {
+        geometry.vertices[i].y = 35 * Math.sin(i / 2);
+    }
+    return geometry;
 }
 
 // PREFABS:
@@ -710,6 +672,25 @@ module.exports.prefabs = {
         tool: true,
         genGeo: async (size, amb) => generateCube(...size, amb),
         stepSrc: "a"
+    },
+    FLUID: {
+        defaultSize: [4, 0.01, 4],
+        dontRound: true,
+        scalable: true,
+        canTerrain: true,
+        edgeNoise: true,
+        scaleWithSize: true,
+        editColor: true,
+        editPen: true,
+        editEmissive: true,
+        editOpac: true,
+        hideBoundingBox: false,
+        texturable: true,
+        genGeo: async size => generateFluid(size[0], size[2]),
+        stepSrc: "a",
+        dummy: false,
+        castShadow: true,
+        receiveShadow: true
     },
 };
 
