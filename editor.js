@@ -364,7 +364,7 @@ class ObjectInstance extends THREE.Object3D {
             if (this.heightSeg) data.sh = this.heightSeg;
             if (this.widthSeg) data.sw = this.widthSeg;
             if (this.heightMlt) data.hm = this.heightMlt;
-            if (this.planeType) data.fx = this.planeType;
+            if (this.planeType) data.pt = this.planeType;
         }
         
         if (!this.visible) data.v = 1;
