@@ -1930,12 +1930,15 @@ const editor = {
                 prevRot = group.rotY,
                 diffRot = currRot.y - prevRot,
                 changedRot = !(diffRot == 0);
+                
+                console.log([currRot.y, prevRot, diffRot], [THREE.Math.radToDeg(currRot.y), THREE.Math.radToDeg(prevRot), THREE.Math.radToDeg(diffRot)])
 
             if (!changedPos && !changedScale && !changedRot) continue; // no changes
             let obs = this.objInstances.filter(ob => group.objects.includes(ob.boundingMesh.uuid));
 
             for (let ob of obs) {
                 if (changedRot) {
+                    if (THREE.Math.radToDeg(diffRot) < 0) diffRot = Math.abs(diffRot);
                     this.rotateAroundPoint(ob.boundingMesh, currPos, new THREE.Vector3(0, 1, 0), diffRot, true);
                 }
                 if (changedScale) {
