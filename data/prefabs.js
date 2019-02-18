@@ -68,9 +68,14 @@ function generateSprite(parent, src, scale) {
 }
 
 // GENERATE PLANE:
-function generatePlane(w, l) {
-    let geo = new THREE.PlaneGeometry(w, l);
+function generatePlane(w, l, animate = false, s = 25, d = 25, m = 2) {
+    let geo = new THREE.PlaneGeometry( w, l, animate ? s - 1 : 1, animate ? d - 1 : 1 );
     geo.rotateX(-Math.PI / 2);
+    
+    let len = geo.vertices.length;
+    for (let i = 0; i < len; i ++) {
+        geo.vertices[i].y =  animate ? m * Math.sin( i / 2 ) : geo.vertices[i].y;
+    }
     return geo;
 }
 
@@ -121,17 +126,6 @@ function generateRamp(x, y, z) {
     geometry.addAttribute("position", new THREE.BufferAttribute(vertices, 3));
     geometry.addAttribute("uv", new THREE.BufferAttribute(uv, 2));
     geometry.addAttribute("normal", new THREE.BufferAttribute(normal, 3));
-    return geometry;
-}
-
-function generateFluid(w, l, s = 25, d = 25, m = 2) {
-    let geometry = new THREE.PlaneGeometry( w, l, s - 1, d - 1 );
-    geometry.rotateX( - Math.PI / 2 );
-    
-    let len = geometry.vertices.length;
-    for (let i = 0; i < len; i ++) {
-        geometry.vertices[i].y =  m * Math.sin( i / 2 );
-    }
     return geometry;
 }
 
@@ -265,11 +259,12 @@ module.exports.prefabs = {
         editOpac: true,
         hideBoundingBox: false,
         texturable: true,
-        genGeo: async size => generatePlane(size[0], size[2]),
+        genGeo: async (size, anm) => generatePlane(size[0], size[2], ...anm),
         stepSrc: "a",
         dummy: false,
         castShadow: true,
-        receiveShadow: true
+        receiveShadow: true,
+        canAnimate: true
     },
     OBJECTIVE: {
         defaultSize: [50, 50, 50],
@@ -363,26 +358,6 @@ module.exports.prefabs = {
         tool: true,
         genGeo: async (size, amb) => generateCube(...size, amb),
         stepSrc: "a"
-    },
-    FLUID: {
-        defaultSize: [10, 1, 10],
-        dontRound: true,
-        scalable: true,
-        canTerrain: true,
-        edgeNoise: true,
-        scaleWithSize: true,
-        editColor: true,
-        editPen: true,
-        editEmissive: true,
-        editOpac: true,
-        hideBoundingBox: false,
-        texturable: true,
-        genGeo: async (size, info) => generateFluid(size[0], size[2], ...info),
-        stepSrc: "a",
-        dummy: false,
-        castShadow: true,
-        receiveShadow: true,
-        experimental: true,
     },
 };
 
