@@ -124,13 +124,13 @@ function generateRamp(x, y, z) {
     return geometry;
 }
 
-function generateFluid(w, l, s = 25, d = 25) {
+function generateFluid(w, l, s = 25, d = 25, m = 2) {
     let geometry = new THREE.PlaneGeometry( w, l, s - 1, d - 1 );
     geometry.rotateX( - Math.PI / 2 );
     
     let len = geometry.vertices.length;
     for (let i = 0; i < len; i ++) {
-        geometry.vertices[i].y =  2 * Math.sin( i / 2 );
+        geometry.vertices[i].y =  m * Math.sin( i / 2 );
     }
     return geometry;
 }
@@ -377,11 +377,12 @@ module.exports.prefabs = {
         editOpac: true,
         hideBoundingBox: false,
         texturable: true,
-        genGeo: async size => generateFluid(size[0], size[2]),
+        genGeo: async (size, info) => generateFluid(size[0], size[2], ...info),
         stepSrc: "a",
         dummy: false,
         castShadow: true,
-        receiveShadow: true
+        receiveShadow: true,
+        fluid: true,
     },
 };
 

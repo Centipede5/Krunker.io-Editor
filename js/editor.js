@@ -433,13 +433,13 @@ function generateRamp(x, y, z) {
     return geometry;
 }
 
-function generateFluid(w, l, s = 25, d = 25) {
+function generateFluid(w, l, s = 25, d = 25, m = 2) {
     let geometry = new THREE.PlaneGeometry( w, l, s - 1, d - 1 );
     geometry.rotateX( - Math.PI / 2 );
     
     let len = geometry.vertices.length;
     for (let i = 0; i < len; i ++) {
-        geometry.vertices[i].y =  2 * Math.sin( i / 2 );
+        geometry.vertices[i].y =  m * Math.sin( i / 2 );
     }
     return geometry;
 }
@@ -686,11 +686,12 @@ module.exports.prefabs = {
         editOpac: true,
         hideBoundingBox: false,
         texturable: true,
-        genGeo: async size => generateFluid(size[0], size[2]),
+        genGeo: async (size, info) => generateFluid(size[0], size[2], ...info),
         stepSrc: "a",
         dummy: false,
         castShadow: true,
-        receiveShadow: true
+        receiveShadow: true,
+        fluid: true,
     },
 };
 
@@ -854,6 +855,15 @@ class ObjectInstance extends THREE.Object3D {
     get edgeNoise() { return this._edgeNoise }
     set edgeNoise(b) { this._edgeNoise = b }
 
+    get fluidMlt() { return this._flMlt }
+    set fluidMlt(b) { this._flMlt = b }
+
+    get fluidSeg() { return this._flSeg }
+    set fluidSeg(b) { this._flSeg = b }
+
+    get fluidDepth() { return this._flDepth }
+    set fluidDepth(b) { this._flDepth = b }
+
     get visible() { return this._visible; }
     set visible(c) {
         this._visible = c;
@@ -968,6 +978,11 @@ class ObjectInstance extends THREE.Object3D {
         this.emissive = (data.e!=undefined?data.e:0x000000);
         this.opacity = (data.o!=undefined?data.o:1);
         this.direction = data.d; // May be undefined
+        
+        // FLUID
+        this.flMlt = (data.fm||2);
+        this.flDepth = (data.fd||25);
+        this.flSeg = (data.fs||25);
 
         // Generate the content
         let prefabPromises = [];
@@ -1044,7 +1059,7 @@ class ObjectInstance extends THREE.Object3D {
             // Handle new size
             if (this.prefab.genGeo) {
                 // Generate geometry with new size
-                this.prefab.genGeo(this.size, 1).then(geo => {
+                this.prefab.genGeo(this.size, this.prefab.fluid ? [this.flSeg, this.flDepth, this.flMlt] : 1).then(geo => {
                     this.defaultMesh.geometry = geo;
                 });
             } else if (this.prefab.scaleWithSize) {
@@ -1058,7 +1073,7 @@ class ObjectInstance extends THREE.Object3D {
                 let time = editor.clock.getElapsedTime() * 10;
                 let len = this.defaultMesh.geometry.vertices.length;
                 for (let i = 0; i < len; i ++) {
-                    this.defaultMesh.geometry.vertices[i].y = 2 * Math.sin( i / 5 + ( time + i ) / 4 );
+                    this.defaultMesh.geometry.vertices[i].y = this.flMlt * Math.sin( i / 5 + ( time + i ) / 4 );
                 }
 
                 this.defaultMesh.geometry.verticesNeedUpdate = true;
@@ -1262,7 +1277,10 @@ const editor = {
             edgeNoise: 0,
             health: 0,
             team: 0,
-            visible: true
+            visible: true,
+            flMlt: 2,
+            flSeg: 25,
+            flDepth: 25
         };
         
         this.highlightObject = null;
@@ -2176,6 +2194,11 @@ const editor = {
         this.objConfig.emissive = instance.emissive;
         this.objConfig.opacity = instance.opacity;
         this.objConfig.direction = instance.direction;
+        
+        // FLUID
+        this.objConfig.flMlt = instance.flMlt;
+        this.objConfig.flDepth = instance.flDepth;
+        this.objConfig.flSeg = instance.flSeg;
         let o;
 
         // BOOLEANS:
@@ -2214,6 +2237,22 @@ const editor = {
             this.objConfigOptions.push(o);
         }
 
+        // FLUID:
+        if (instance.prefab.fluid) {
+            o = this.objConfigGUI.add(this.objConfig, "flMlt", 0.1, 4, .1).name("Multiplier").onChange(h => {
+                instance.flMlt = h;
+            });
+            this.objConfigOptions.push(o);
+            o = this.objConfigGUI.add(this.objConfig, "flDepth", 25, 256, 5).name("Depth").onChange(h => {
+                instance.flDepth = h;
+            });
+            this.objConfigOptions.push(o);
+            o = this.objConfigGUI.add(this.objConfig, "flSeg", 25, 256, 5).name("Segments").onChange(h => {
+                instance.flSeg = h;
+            });
+            this.objConfigOptions.push(o);
+        }
+        
         // PARTICLES:
         if (instance.prefab.hasParticles) {
             let options = {
