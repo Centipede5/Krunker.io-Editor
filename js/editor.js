@@ -691,7 +691,7 @@ module.exports.prefabs = {
         dummy: false,
         castShadow: true,
         receiveShadow: true,
-        fluid: true,
+        experimental: true,
     },
 };
 
@@ -739,6 +739,10 @@ module.exports.texturePrefabs = {
     },
     WATER: {
         src: "water_0",
+        filter: THREE.NearestFilter
+    },
+    LAVA: {
+        src: "lava_0",
         filter: THREE.NearestFilter
     }
 };
@@ -1107,7 +1111,7 @@ class ObjectInstance extends THREE.Object3D {
         if (this.boost) data.b = this.boost;
         if (this.edgeNoise) data.en = this.edgeNoise.round(1);
         if (this.health) data.hp = this.health;
-        if (this.prefab.fluid) {
+        if (this.prefab.objType == 'FLUID') {
             if (this.flSeg) data.fs = this.flSeg;
             if (this.flDepth) data.fd = this.flDepth;
             if (this.flMlt) data.fm = this.flMlt;
@@ -1373,11 +1377,12 @@ const editor = {
         });
 
         let createGUI = gui.addFolder("Create Object");
-        let modelsGUI = createGUI.addFolder("Models")
+        let modelsGUI = createGUI.addFolder("Models");
         let toolsGUI = createGUI.addFolder("Tools");
+        let expmtlGUI = createGUI.addFolder("Experimental");
         for (let id in prefabs) {
             if (!prefabs.hasOwnProperty(id) || prefabs[id].noExport) continue;
-            (prefabs[id].gen ? modelsGUI : (prefabs[id].tool ? toolsGUI : createGUI)).add(this.createObjects, id).name(this.formatConstName(id));
+            (prefabs[id].experimental ? expmtlGUI : (prefabs[id].gen ? modelsGUI : (prefabs[id].tool ? toolsGUI : createGUI))).add(this.createObjects, id).name(this.formatConstName(id));
         }
         createGUI.open();
 
@@ -2247,7 +2252,7 @@ const editor = {
         }
 
         // FLUID:
-        if (instance.prefab.fluid) {
+        if (instance.objType == 'FLUID') {
             o = this.objConfigGUI.add(this.objConfig, "flMlt", 0.1, 4, .1).name("Multiplier").onChange(h => {
                 instance.flMlt = h;
             });
@@ -2286,6 +2291,7 @@ const editor = {
                     options[this.formatConstName(key)] = key;
                 }
             }
+            if (instance.objType == 'FLUID') options = {"Default": "DEFAULT", 'Water': 'WATER', 'Lava': 'LAVA'}
             o = this.objConfigGUI.add(this.objConfig, "texture").options(options).name("Texture").listen().onChange(prefabId => {
                 instance.texture = prefabId;
             });

@@ -382,7 +382,7 @@ module.exports.prefabs = {
         dummy: false,
         castShadow: true,
         receiveShadow: true,
-        fluid: true,
+        experimental: true,
     },
 };
 
@@ -430,6 +430,10 @@ module.exports.texturePrefabs = {
     },
     WATER: {
         src: "water_0",
+        filter: THREE.NearestFilter
+    },
+    LAVA: {
+        src: "lava_0",
         filter: THREE.NearestFilter
     }
 };
