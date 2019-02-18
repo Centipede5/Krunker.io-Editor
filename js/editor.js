@@ -108,7 +108,7 @@ module.exports.serverConfig = [{
         bool: !0
     }
 ],
-module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR", "ACIDBARREL", "PLACEHOLDER", "TURF"],
+module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR", "ACIDBARREL", "PLACEHOLDER"],
 module.exports.textureIDS = ["WALL", "DIRT", "FLOOR", "GRID", "GREY", "DEFAULT", "ROOF", "FLAG", "GRASS", "CHECK"],
 module.exports.objectLimit = 3500,
 module.exports.objectLimitF = 6e3,
@@ -710,25 +710,6 @@ module.exports.prefabs = {
         tool: true,
         genGeo: async (size, amb) => generateCube(...size, amb),
         stepSrc: "a"
-    },
-    TURF: {
-        defaultSize: [4, 0.01, 4],
-        dontRound: true,
-        scalable: true,
-        canTerrain: true,
-        edgeNoise: true,
-        scaleWithSize: true,
-        editColor: true,
-        editPen: true,
-        editEmissive: true,
-        editOpac: true,
-        hideBoundingBox: false,
-        texturable: true,
-        genGeo: async size => generateFieldTurf(size[0], size[2], "textures/grass_1.png"),
-        stepSrc: "a",
-        dummy: false,
-        castShadow: true,
-        receiveShadow: true
     },
 };
 

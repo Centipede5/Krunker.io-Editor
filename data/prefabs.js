@@ -402,25 +402,6 @@ module.exports.prefabs = {
         genGeo: async (size, amb) => generateCube(...size, amb),
         stepSrc: "a"
     },
-    TURF: {
-        defaultSize: [4, 0.01, 4],
-        dontRound: true,
-        scalable: true,
-        canTerrain: true,
-        edgeNoise: true,
-        scaleWithSize: true,
-        editColor: true,
-        editPen: true,
-        editEmissive: true,
-        editOpac: true,
-        hideBoundingBox: false,
-        texturable: true,
-        genGeo: async size => generateFieldTurf(size[0], size[2], "textures/grass_1.png"),
-        stepSrc: "a",
-        dummy: false,
-        castShadow: true,
-        receiveShadow: true
-    },
 };
 
 // TEXTURE PREFABS:
