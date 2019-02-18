@@ -68,13 +68,16 @@ function generateSprite(parent, src, scale) {
 }
 
 // GENERATE PLANE:
-function generatePlane(w, l, animate = false, s = 25, d = 25, m = 2) {
-    let geo = new THREE.PlaneGeometry( w, l, animate ? s - 1 : 1, animate ? d - 1 : 1 );
+function generatePlane(w, l, type = 0, widthSeg = 25, heightSeg = 25, heightAmp = 1) {
+    let geo = new THREE.PlaneGeometry(w, l, type > 0 ? widthSeg - 1 : 1, type > 0 ? heightSeg - 1 : 1);
     geo.rotateX(-Math.PI / 2);
-    
-    let len = geo.vertices.length;
-    for (let i = 0; i < len; i ++) {
-        geo.vertices[i].y =  animate ? m * Math.sin( i / 2 ) : geo.vertices[i].y;
+    if (type == 2) {
+        let len = geo.vertices.length;
+        for (let i = 0; i < len; i++) {
+            geo.vertices[i].y =  heightAmp * Math.sin( i / 2 );
+        }
+    } else if (type == 1) {
+        //heightmap etc
     }
     return geo;
 }
@@ -263,8 +266,7 @@ module.exports.prefabs = {
         stepSrc: "a",
         dummy: false,
         castShadow: true,
-        receiveShadow: true,
-        canAnimate: true
+        receiveShadow: true
     },
     OBJECTIVE: {
         defaultSize: [50, 50, 50],

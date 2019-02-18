@@ -377,13 +377,16 @@ function generateSprite(parent, src, scale) {
 }
 
 // GENERATE PLANE:
-function generatePlane(w, l, animate = false, s = 25, d = 25, m = 2) {
-    let geo = new THREE.PlaneGeometry( w, l, animate ? s - 1 : 1, animate ? d - 1 : 1 );
+function generatePlane(w, l, type = 0, widthSeg = 25, heightSeg = 25, heightAmp = 1) {
+    let geo = new THREE.PlaneGeometry(w, l, type > 0 ? widthSeg - 1 : 1, type > 0 ? heightSeg - 1 : 1);
     geo.rotateX(-Math.PI / 2);
-    
-    let len = geo.vertices.length;
-    for (let i = 0; i < len; i ++) {
-        geo.vertices[i].y =  animate ? m * Math.sin( i / 2 ) : geo.vertices[i].y;
+    if (type == 2) {
+        let len = geo.vertices.length;
+        for (let i = 0; i < len; i++) {
+            geo.vertices[i].y =  heightAmp * Math.sin( i / 2 );
+        }
+    } else if (type == 1) {
+        //heightmap etc
     }
     return geo;
 }
@@ -572,8 +575,7 @@ module.exports.prefabs = {
         stepSrc: "a",
         dummy: false,
         castShadow: true,
-        receiveShadow: true,
-        canAnimate: true
+        receiveShadow: true
     },
     OBJECTIVE: {
         defaultSize: [50, 50, 50],
@@ -838,17 +840,23 @@ class ObjectInstance extends THREE.Object3D {
     get edgeNoise() { return this._edgeNoise }
     set edgeNoise(b) { this._edgeNoise = b }
 
-    get planeMlt() { return this._plMlt }
-    set planeMlt(b) { this._plMlt = b }
+    get heightAmplifier() { return this._heightMlt }
+    set heightAmplifier(b) { this._heightMlt = b }
 
-    get planeSeg() { return this._plSeg }
-    set planeSeg(b) { this._plSeg = b }
+    get heightSegements() { return this._heightSeg }
+    set heightSegements(b) { this._heightSeg = b }
 
-    get planeDepth() { return this._plDepth }
-    set planeDepth(b) { this._plDepth = b }
+    get widthSegements() { return this.widthSeg }
+    set widthSegements(b) { this._widthSeg = b }
     
-    get planeAnimation() { return this._plAnm }
-    set planeAnimation(b) { this._plAnm = b }
+    get planeType() { return this._planeType }
+    set planeType(b) { this._planeType = b }
+    
+    resetPlane() {
+        this.prefab.genGeo(this.size, [this.planeType, this.widthSeg, this.heightSeg, this.heightMlt]).then(geo => {
+            this.defaultMesh.geometry = geo;
+        });
+    }
 
     get visible() { return this._visible; }
     set visible(c) {
@@ -966,10 +974,10 @@ class ObjectInstance extends THREE.Object3D {
         this.direction = data.d; // May be undefined
         
         // PLAIN ANIMATION
-        this.plMlt = (data.pm||1);
-        this.plDepth = (data.pd||25);
-        this.plSeg = (data.ps||25);
-        this.plAnm = (data.pa||false);
+        this.heightMlt = (data.hm||1);
+        this.widthSeg = (data.sw||25);
+        this.heightSeg = (data.sh||25);
+        this.planeType = (data.pt||0);
 
         // Generate the content
         let prefabPromises = [];
@@ -1046,7 +1054,7 @@ class ObjectInstance extends THREE.Object3D {
             // Handle new size
             if (this.prefab.genGeo) {
                 // Generate geometry with new size
-                this.prefab.genGeo(this.size, this.prefab.canAnimate ? [this.plAnm, this.plSeg, this.plDepth, this.plMlt] : 1).then(geo => {
+                this.prefab.genGeo(this.size, this.prefab.canTerrain ? [this.planeType, this.widthSeg, this.heightSeg, this.heightMlt] : 1).then(geo => {
                     this.defaultMesh.geometry = geo;
                 });
             } else if (this.prefab.scaleWithSize) {
@@ -1056,14 +1064,15 @@ class ObjectInstance extends THREE.Object3D {
             // Save previous scale
             this.previousScale.copy(newScale);
         } else {
-            if (this.prefab.canAnimate) {
-                let time = editor.clock.getElapsedTime() * 10;
-                let len = this.defaultMesh.geometry.vertices.length;
-                for (let i = 0; i < len; i ++) {
-                    this.defaultMesh.geometry.vertices[i].y = this.plAnm ? this.plMlt * Math.sin( i / 5 + ( time + i ) / 4 ) : 0;
+            if (this.prefab.canTerrain) {
+                if (this.planeType == 2) {
+                    let time = editor.clock.getElapsedTime() * 10;
+                    let len = this.defaultMesh.geometry.vertices.length;
+                    for (let i = 0; i < len; i ++) {
+                        this.defaultMesh.geometry.vertices[i].y = this.heightMlt * Math.sin( i / 5 + ( time + i ) / 4 );
+                    }
+                    this.defaultMesh.geometry.verticesNeedUpdate = true;
                 }
-
-                this.defaultMesh.geometry.verticesNeedUpdate = true;
             }
         }
 
@@ -1091,10 +1100,11 @@ class ObjectInstance extends THREE.Object3D {
         if (this.edgeNoise) data.en = this.edgeNoise.round(1);
         if (this.health) data.hp = this.health;
         
-        if (this.prefab.canAnimate && this.plAnm) {
-            if (this.plSeg) data.ps = this.plSeg;
-            if (this.plDepth) data.pd = this.plDepth;
-            if (this.plMlt) data.pm = this.plMlt;
+        if (this.prefab.canTerrain && this.planeType) {
+            if (this.heightSeg) data.sh = this.heightSeg;
+            if (this.widthSeg) data.sw = this.widthSeg;
+            if (this.heightMlt) data.hm = this.heightMlt;
+            if (this.planeType) data.fx = this.planeType;
         }
         
         if (!this.visible) data.v = 1;
@@ -1272,10 +1282,10 @@ const editor = {
             health: 0,
             team: 0,
             visible: true,
-            plMlt: 1,
-            plSeg: 25,
-            plDepth: 25,
-            plAnm: false
+            heightMlt: 1,
+            heightSeg: 25,
+            widthSeg: 25,
+            planeType: 0
         };
         
         this.highlightObject = null;
@@ -2191,10 +2201,10 @@ const editor = {
         this.objConfig.direction = instance.direction;
         
         // PLANE ANIMATION
-        this.objConfig.plMlt = instance.plMlt;
-        this.objConfig.plDepth = instance.plDepth;
-        this.objConfig.plSeg = instance.plSeg;
-        this.objConfig.plAnm = instance.plAnm;
+        this.objConfig.heightMlt = instance.heightMlt;
+        this.objConfig.widthSeg = instance.widthSeg;
+        this.objConfig.heightSeg = instance.heightSeg;
+        this.objConfig.planeType = instance.planeType;
         let o;
 
         // BOOLEANS:
@@ -2232,21 +2242,30 @@ const editor = {
             });
             this.objConfigOptions.push(o);
         }
-
-        // PLANE ANIMATION:
-        if (instance.prefab.canAnimate) {
-            o = this.objConfigGUI.addFolder("Animation");
-            o.add(this.objConfig, "plAnm").name("Animate").listen().onChange(h => {
-                instance.plAnm = h;
+        
+        // PLANE EFFECTS:
+        if (instance.prefab.canTerrain) {
+            o = this.objConfigGUI.addFolder("Manipulate");
+            let options = {
+                "Default": 0,
+                "Terrain": 1,
+                "Animated": 2
+            };
+            o.add(this.objConfig, "planeType").options(options).name("Effect").onChange(t => {
+                instance.planeType = t;
+                instance.resetPlane();
             });
-            o.add(this.objConfig, "plMlt", 0.1, 4, .1).name("Multiplier").onChange(h => {
-                instance.plMlt = h;
+            o.add(this.objConfig, "heightMlt", 0.1, 4, .1).name("Height Amplifier").onChange(h => {
+                instance.heightMlt = h;
+                instance.resetPlane();
             });
-            o.add(this.objConfig, "plDepth", 25, 256, 5).name("Depth").onChange(h => {
-                instance.plDepth = h;
+            o.add(this.objConfig, "widthSeg", 10, 256, 5).name("WSegments").onChange(w => {
+                instance.widthSeg = w;
+                instance.resetPlane();
             });
-            o.add(this.objConfig, "plSeg", 25, 256, 5).name("Segments").onChange(h => {
-                instance.plSeg = h;
+            o.add(this.objConfig, "heightSeg", 10, 256, 5).name("HSegments").onChange(h => {
+                instance.heightSeg = h;
+                instance.resetPlane();
             });
             this.objConfigOptions.push(o);
         }
