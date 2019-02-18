@@ -433,13 +433,13 @@ function generateRamp(x, y, z) {
     return geometry;
 }
 
-function generateFluid(w, l, s = 128, d = 128) {
+function generateFluid(w, l, s = 25, d = 25) {
     let geometry = new THREE.PlaneGeometry( w, l, s - 1, d - 1 );
     geometry.rotateX( - Math.PI / 2 );
     
     let len = geometry.vertices.length;
     for (let i = 0; i < len; i ++) {
-        geometry.vertices[i].y = 35 * Math.sin(i / 2);
+        geometry.vertices[i].y =  2 * Math.sin( i / 2 );
     }
     return geometry;
 }
@@ -674,7 +674,7 @@ module.exports.prefabs = {
         stepSrc: "a"
     },
     FLUID: {
-        defaultSize: [4, 0.01, 4],
+        defaultSize: [10, 1, 10],
         dontRound: true,
         scalable: true,
         canTerrain: true,
@@ -1053,6 +1053,16 @@ class ObjectInstance extends THREE.Object3D {
 
             // Save previous scale
             this.previousScale.copy(newScale);
+        } else {
+            if (this.objType == "FLUID") {
+                let time = editor.clock.getElapsedTime() * 10;
+                let len = this.defaultMesh.geometry.vertices.length;
+                for (let i = 0; i < len; i ++) {
+                    this.defaultMesh.geometry.vertices[i].y = 2 * Math.sin( i / 5 + ( time + i ) / 4 );
+                }
+
+                this.defaultMesh.geometry.verticesNeedUpdate = true;
+            }
         }
 
         // Reset scale if not scalable

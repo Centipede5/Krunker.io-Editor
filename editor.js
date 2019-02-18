@@ -299,6 +299,16 @@ class ObjectInstance extends THREE.Object3D {
 
             // Save previous scale
             this.previousScale.copy(newScale);
+        } else {
+            if (this.objType == "FLUID") {
+                let time = editor.clock.getElapsedTime() * 10;
+                let len = this.defaultMesh.geometry.vertices.length;
+                for (let i = 0; i < len; i ++) {
+                    this.defaultMesh.geometry.vertices[i].y = 2 * Math.sin( i / 5 + ( time + i ) / 4 );
+                }
+
+                this.defaultMesh.geometry.verticesNeedUpdate = true;
+            }
         }
 
         // Reset scale if not scalable
