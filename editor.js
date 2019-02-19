@@ -100,6 +100,9 @@ class ObjectInstance extends THREE.Object3D {
     get edgeNoise() { return this._edgeNoise }
     set edgeNoise(b) { this._edgeNoise = b }
 
+    get speedMlt() { return this._speedMlt }
+    set speedMlt(b) { this._speedMlt = b }
+
     get maxHeight() { return this._maxHeight }
     set maxHeight(b) { this._maxHeight = b }
 
@@ -246,6 +249,7 @@ class ObjectInstance extends THREE.Object3D {
         this.planeType = (data.pt||0);
         this.frequency = (data.fq||2.5);
         this.seed = (data.sd||Math.random());
+        this.speedMlt = (data.sm||10);
 
         // Generate the content
         let prefabPromises = [];
@@ -334,7 +338,7 @@ class ObjectInstance extends THREE.Object3D {
         } else {
             if (this.prefab.canTerrain) {
                 if (this.planeType == 2) {
-                    let time = editor.clock.getElapsedTime() * 10;
+                    let time = editor.clock.getElapsedTime() * this.speedMlt;
                     let len = this.defaultMesh.geometry.vertices.length;
                     let range = this.maxHeight * 0.5;
                     for (let i = 0; i < len; i ++) {
@@ -377,6 +381,9 @@ class ObjectInstance extends THREE.Object3D {
             if (this.planeType == 1) {
                 data.sd = this.seed;
                 data.fq = this.frequency;
+            }
+            if (this.planeType == 2) {
+                data.sm = this.speedMlt;
             }
         }
         
@@ -560,7 +567,8 @@ const editor = {
             xSeg: 25,
             planeType: 0,
             frequency: 2.5,
-            seed: 0.1
+            seed: 0.1,
+            speedMlt: 10
         };
         
         this.highlightObject = null;
@@ -1143,6 +1151,25 @@ const editor = {
                 this.removeHighlight();
             }
         });
+        this.container.addEventListener("drop", () => {
+            event.preventDefault();
+            let scope = this;
+            for (let i = 0; i < event.dataTransfer.files.length; i++) {
+                let file = event.dataTransfer.files[i];
+                let reader = new FileReader();
+                reader.onload = function (event){
+                    let dataUri	= event.target.result;
+                    let base64 = dataUri.match(/[^,]*,(.*)/)[1];
+                    let json = window.atob(base64);
+                    console.log(json);
+                    scope.importMap(json);
+                };
+                reader.readAsDataURL(file);
+            }
+        }, false);
+        this.container.addEventListener("dragover", () => {
+            event.preventDefault();
+        }, false);
     },
 
     // RENDER:
@@ -1482,6 +1509,7 @@ const editor = {
         this.objConfig.planeType = instance.planeType;
         this.objConfig.seed = instance.seed;
         this.objConfig.frequency = instance.frequency;
+        this.objConfig.speedMlt = instance.speedMlt;
         let o;
 
         // BOOLEANS:
@@ -1544,8 +1572,11 @@ const editor = {
             o.add(this.objConfig, "frequency", 0.1, 5, .1).name("Frequency").onChange(f => {
                 instance.frequency = f;
             });
+            o.add(this.objConfig, "speedMlt", 1, 50, 1).name("Speed Multiplier").onChange(s => {
+                instance.speedMlt = s;
+            });
             o.add(this.objConfig, "seed").name("Seed").onChange(y => {
-                instance.seed = y.toString();
+                instance.seed = y;
             });
             let other = {
                 resetPlane: (() => instance.resetPlane()),
