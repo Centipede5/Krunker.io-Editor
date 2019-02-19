@@ -3,6 +3,7 @@ let THREE = require("three"); // To silence the warning
 // IMPORTS:
 const config = require("../config.js");
 const geos = require("../libs/geos.js");
+const noise = require("../libs/perlin.js").noise;
 
 // LOAD OBJ:
 let textureLoader = new THREE.TextureLoader();
@@ -68,16 +69,25 @@ function generateSprite(parent, src, scale) {
 }
 
 // GENERATE PLANE:
-function generatePlane(w, l, type = 0, widthSeg = 25, heightSeg = 25, heightAmp = 1) {
-    let geo = new THREE.PlaneGeometry(w, l, type > 0 ? widthSeg - 1 : 1, type > 0 ? heightSeg - 1 : 1);
+function generatePlane(w, l, settings = []) {
+    let geo = new THREE.PlaneGeometry(w, l, settings.planeType > 0 ? settings.xSeg : 1, settings.planeType > 0 ? settings.ySeg : 1);
     geo.rotateX(-Math.PI / 2);
-    if (type == 2) {
+    let minHeight = settings.planeType == 1 ? -100 : 0;
+    if (settings.planeType == 2) {
         let len = geo.vertices.length;
+        let range = (settings.maxHeight - minHeight) * 0.5;
         for (let i = 0; i < len; i++) {
-            geo.vertices[i].y =  heightAmp * Math.sin( i / 2 );
+            geo.vertices[i].y = range * Math.sin( i / 2 );
         }
-    } else if (type == 1) {
-        //heightmap etc
+    } else if (settings.planeType == 1) {
+        noise.seed(settings.seed);
+        let range = (settings.maxHeight - minHeight) * 0.5,
+            divisor = (Math.min(settings.xSeg, settings.ySeg) + 1) / settings.frequency;
+        for (let i = 0, xl = settings.xSeg + 1; i < xl; i++) {
+            for (let j = 0, yl = settings.ySeg + 1; j < yl; j++) {
+                geo.vertices[j * xl + i].y += noise.perlin(i / divisor, j / divisor) * range;
+            }
+        }
     }
     return geo;
 }
@@ -262,7 +272,7 @@ module.exports.prefabs = {
         editOpac: true,
         hideBoundingBox: false,
         texturable: true,
-        genGeo: async (size, anm) => generatePlane(size[0], size[2], ...anm),
+        genGeo: async (size, instance) => generatePlane(size[0], size[2], instance),
         stepSrc: "a",
         dummy: false,
         castShadow: true,
@@ -297,7 +307,7 @@ module.exports.prefabs = {
         canTerrain: true,
         scaleWithSize: true,
         hideBoundingBox: false,
-        genGeo: async size => generatePlane(size[0], size[2]),
+        genGeo: async (size, instance) => generatePlane(size[0], size[2], instance),
         stepSrc: "a",
         dummy: false,
         castShadow: true,

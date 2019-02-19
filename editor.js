@@ -100,23 +100,29 @@ class ObjectInstance extends THREE.Object3D {
     get edgeNoise() { return this._edgeNoise }
     set edgeNoise(b) { this._edgeNoise = b }
 
-    get heightAmplifier() { return this._heightMlt }
-    set heightAmplifier(b) { this._heightMlt = b }
+    get maxHeight() { return this._maxHeight }
+    set maxHeight(b) { this._maxHeight = b }
 
-    get heightSegements() { return this._heightSeg }
-    set heightSegements(b) { this._heightSeg = b }
+    get frequency() { return this._frequency }
+    set frequency(b) { this._frequency = b }
 
-    get widthSegements() { return this.widthSeg }
-    set widthSegements(b) { this._widthSeg = b }
+    get ySeg() { return this._ySeg }
+    set ySeg(b) { this._ySeg = b }
+
+    get xSeg() { return this._xSeg }
+    set xSeg(b) { this._xSeg = b }
     
     get planeType() { return this._planeType }
     set planeType(b) { this._planeType = b }
     
+    get seed() { return this._seed }
+    set seed(b) { this._seed = b }
+    
     resetPlane() {
-        this.prefab.genGeo(this.size, [this.planeType, this.widthSeg, this.heightSeg, this.heightMlt]).then(geo => {
+        this.prefab.genGeo(this.size, this).then(geo => {
             this.defaultMesh.geometry = geo;
         });
-    }
+    }    
 
     get visible() { return this._visible; }
     set visible(c) {
@@ -234,10 +240,12 @@ class ObjectInstance extends THREE.Object3D {
         this.direction = data.d; // May be undefined
         
         // PLAIN ANIMATION
-        this.heightMlt = (data.hm||1);
-        this.widthSeg = (data.sw||25);
-        this.heightSeg = (data.sh||25);
+        this.maxHeight = (data.mh||1);
+        this.xSeg = (data.xs||25);
+        this.ySeg = (data.ys||25);
         this.planeType = (data.pt||0);
+        this.frequency = (data.fq||2.5);
+        this.seed = (data.sd||Math.random());
 
         // Generate the content
         let prefabPromises = [];
@@ -314,7 +322,7 @@ class ObjectInstance extends THREE.Object3D {
             // Handle new size
             if (this.prefab.genGeo) {
                 // Generate geometry with new size
-                this.prefab.genGeo(this.size, this.prefab.canTerrain ? [this.planeType, this.widthSeg, this.heightSeg, this.heightMlt] : 1).then(geo => {
+                this.prefab.genGeo(this.size, this.prefab.canTerrain ? this : 1).then(geo => {
                     this.defaultMesh.geometry = geo;
                 });
             } else if (this.prefab.scaleWithSize) {
@@ -328,8 +336,9 @@ class ObjectInstance extends THREE.Object3D {
                 if (this.planeType == 2) {
                     let time = editor.clock.getElapsedTime() * 10;
                     let len = this.defaultMesh.geometry.vertices.length;
+                    let range = this.maxHeight * 0.5;
                     for (let i = 0; i < len; i ++) {
-                        this.defaultMesh.geometry.vertices[i].y = this.heightMlt * Math.sin( i / 5 + ( time + i ) / 4 );
+                        this.defaultMesh.geometry.vertices[i].y = range * Math.sin( i / 5 + ( time + i ) / 4 );
                     }
                     this.defaultMesh.geometry.verticesNeedUpdate = true;
                 }
@@ -361,10 +370,14 @@ class ObjectInstance extends THREE.Object3D {
         if (this.health) data.hp = this.health;
         
         if (this.prefab.canTerrain && this.planeType) {
-            if (this.heightSeg) data.sh = this.heightSeg;
-            if (this.widthSeg) data.sw = this.widthSeg;
-            if (this.heightMlt) data.hm = this.heightMlt;
+            if (this.ySeg) data.ys = this.ySeg;
+            if (this.xSeg) data.xs = this.xSeg;
+            if (this.maxHeight) data.mh = this.maxHeight;
             if (this.planeType) data.pt = this.planeType;
+            if (this.planeType == 1) {
+                data.sd = this.seed;
+                data.fq = this.frequency;
+            }
         }
         
         if (!this.visible) data.v = 1;
@@ -542,10 +555,12 @@ const editor = {
             health: 0,
             team: 0,
             visible: true,
-            heightMlt: 1,
-            heightSeg: 25,
-            widthSeg: 25,
-            planeType: 0
+            maxHeight: 10,
+            ySeg: 25,
+            xSeg: 25,
+            planeType: 0,
+            frequency: 2.5,
+            seed: 0.1
         };
         
         this.highlightObject = null;
@@ -1461,10 +1476,12 @@ const editor = {
         this.objConfig.direction = instance.direction;
         
         // PLANE ANIMATION
-        this.objConfig.heightMlt = instance.heightMlt;
-        this.objConfig.widthSeg = instance.widthSeg;
-        this.objConfig.heightSeg = instance.heightSeg;
+        this.objConfig.maxHeight = instance.maxHeight;
+        this.objConfig.xSeg = instance.xSeg;
+        this.objConfig.ySeg = instance.ySeg;
         this.objConfig.planeType = instance.planeType;
+        this.objConfig.seed = instance.seed;
+        this.objConfig.frequency = instance.frequency;
         let o;
 
         // BOOLEANS:
@@ -1515,18 +1532,27 @@ const editor = {
                 instance.planeType = t;
                 instance.resetPlane();
             });
-            o.add(this.objConfig, "heightMlt", 0.1, 4, .1).name("Height Amplifier").onChange(h => {
-                instance.heightMlt = h;
-                instance.resetPlane();
+            o.add(this.objConfig, "maxHeight", 1, 300, 1).name("Max Height").onChange(h => {
+                instance.maxHeight = h;
             });
-            o.add(this.objConfig, "widthSeg", 10, 256, 5).name("WSegments").onChange(w => {
-                instance.widthSeg = w;
-                instance.resetPlane();
+            o.add(this.objConfig, "xSeg", 10, 256, 5).name("X Segments").onChange(x => {
+                instance.xSeg = x;
             });
-            o.add(this.objConfig, "heightSeg", 10, 256, 5).name("HSegments").onChange(h => {
-                instance.heightSeg = h;
-                instance.resetPlane();
+            o.add(this.objConfig, "ySeg", 10, 256, 5).name("Y Segments").onChange(y => {
+                instance.ySeg = y;
             });
+            o.add(this.objConfig, "frequency", 0.1, 5, .1).name("Frequency").onChange(f => {
+                instance.frequency = f;
+            });
+            o.add(this.objConfig, "seed").name("Seed").onChange(y => {
+                instance.seed = y.toString();
+            });
+            let other = {
+                resetPlane: (() => instance.resetPlane()),
+                randomSeed: (() => (this.objConfig.seed = instance.seed = Math.random(), this.objConfigGUI.updateDisplay()))
+            };
+            o.add(other, "randomSeed").name("Randomize Seed");
+            o.add(other, "resetPlane").name("Regenerate");
             this.objConfigOptions.push(o);
         }
         

@@ -312,6 +312,7 @@ let THREE = require("three"); // To silence the warning
 // IMPORTS:
 const config = require("../config.js");
 const geos = require("../libs/geos.js");
+const noise = require("../libs/perlin.js").noise;
 
 // LOAD OBJ:
 let textureLoader = new THREE.TextureLoader();
@@ -377,16 +378,25 @@ function generateSprite(parent, src, scale) {
 }
 
 // GENERATE PLANE:
-function generatePlane(w, l, type = 0, widthSeg = 25, heightSeg = 25, heightAmp = 1) {
-    let geo = new THREE.PlaneGeometry(w, l, type > 0 ? widthSeg - 1 : 1, type > 0 ? heightSeg - 1 : 1);
+function generatePlane(w, l, settings = []) {
+    let geo = new THREE.PlaneGeometry(w, l, settings.planeType > 0 ? settings.xSeg : 1, settings.planeType > 0 ? settings.ySeg : 1);
     geo.rotateX(-Math.PI / 2);
-    if (type == 2) {
+    let minHeight = settings.planeType == 1 ? -100 : 0;
+    if (settings.planeType == 2) {
         let len = geo.vertices.length;
+        let range = (settings.maxHeight - minHeight) * 0.5;
         for (let i = 0; i < len; i++) {
-            geo.vertices[i].y =  heightAmp * Math.sin( i / 2 );
+            geo.vertices[i].y = range * Math.sin( i / 2 );
         }
-    } else if (type == 1) {
-        //heightmap etc
+    } else if (settings.planeType == 1) {
+        noise.seed(settings.seed);
+        let range = (settings.maxHeight - minHeight) * 0.5,
+            divisor = (Math.min(settings.xSeg, settings.ySeg) + 1) / settings.frequency;
+        for (let i = 0, xl = settings.xSeg + 1; i < xl; i++) {
+            for (let j = 0, yl = settings.ySeg + 1; j < yl; j++) {
+                geo.vertices[j * xl + i].y += noise.perlin(i / divisor, j / divisor) * range;
+            }
+        }
     }
     return geo;
 }
@@ -571,7 +581,7 @@ module.exports.prefabs = {
         editOpac: true,
         hideBoundingBox: false,
         texturable: true,
-        genGeo: async (size, anm) => generatePlane(size[0], size[2], ...anm),
+        genGeo: async (size, instance) => generatePlane(size[0], size[2], instance),
         stepSrc: "a",
         dummy: false,
         castShadow: true,
@@ -606,7 +616,7 @@ module.exports.prefabs = {
         canTerrain: true,
         scaleWithSize: true,
         hideBoundingBox: false,
-        genGeo: async size => generatePlane(size[0], size[2]),
+        genGeo: async (size, instance) => generatePlane(size[0], size[2], instance),
         stepSrc: "a",
         dummy: false,
         castShadow: true,
@@ -737,7 +747,7 @@ module.exports.loadTexturePrefab = function(id) {
     });
 };
 
-},{"../config.js":1,"../libs/geos.js":8,"three":11}],4:[function(require,module,exports){
+},{"../config.js":1,"../libs/geos.js":8,"../libs/perlin.js":9,"three":12}],4:[function(require,module,exports){
 
 // DISABLE ERRORS:
 console.warn = (text) => {};
@@ -840,23 +850,29 @@ class ObjectInstance extends THREE.Object3D {
     get edgeNoise() { return this._edgeNoise }
     set edgeNoise(b) { this._edgeNoise = b }
 
-    get heightAmplifier() { return this._heightMlt }
-    set heightAmplifier(b) { this._heightMlt = b }
+    get maxHeight() { return this._maxHeight }
+    set maxHeight(b) { this._maxHeight = b }
 
-    get heightSegements() { return this._heightSeg }
-    set heightSegements(b) { this._heightSeg = b }
+    get frequency() { return this._frequency }
+    set frequency(b) { this._frequency = b }
 
-    get widthSegements() { return this.widthSeg }
-    set widthSegements(b) { this._widthSeg = b }
+    get ySeg() { return this._ySeg }
+    set ySeg(b) { this._ySeg = b }
+
+    get xSeg() { return this._xSeg }
+    set xSeg(b) { this._xSeg = b }
     
     get planeType() { return this._planeType }
     set planeType(b) { this._planeType = b }
     
+    get seed() { return this._seed }
+    set seed(b) { this._seed = b }
+    
     resetPlane() {
-        this.prefab.genGeo(this.size, [this.planeType, this.widthSeg, this.heightSeg, this.heightMlt]).then(geo => {
+        this.prefab.genGeo(this.size, this).then(geo => {
             this.defaultMesh.geometry = geo;
         });
-    }
+    }    
 
     get visible() { return this._visible; }
     set visible(c) {
@@ -974,10 +990,12 @@ class ObjectInstance extends THREE.Object3D {
         this.direction = data.d; // May be undefined
         
         // PLAIN ANIMATION
-        this.heightMlt = (data.hm||1);
-        this.widthSeg = (data.sw||25);
-        this.heightSeg = (data.sh||25);
+        this.maxHeight = (data.mh||1);
+        this.xSeg = (data.xs||25);
+        this.ySeg = (data.ys||25);
         this.planeType = (data.pt||0);
+        this.frequency = (data.fq||2.5);
+        this.seed = (data.sd||Math.random());
 
         // Generate the content
         let prefabPromises = [];
@@ -1054,7 +1072,7 @@ class ObjectInstance extends THREE.Object3D {
             // Handle new size
             if (this.prefab.genGeo) {
                 // Generate geometry with new size
-                this.prefab.genGeo(this.size, this.prefab.canTerrain ? [this.planeType, this.widthSeg, this.heightSeg, this.heightMlt] : 1).then(geo => {
+                this.prefab.genGeo(this.size, this.prefab.canTerrain ? this : 1).then(geo => {
                     this.defaultMesh.geometry = geo;
                 });
             } else if (this.prefab.scaleWithSize) {
@@ -1068,8 +1086,9 @@ class ObjectInstance extends THREE.Object3D {
                 if (this.planeType == 2) {
                     let time = editor.clock.getElapsedTime() * 10;
                     let len = this.defaultMesh.geometry.vertices.length;
+                    let range = this.maxHeight * 0.5;
                     for (let i = 0; i < len; i ++) {
-                        this.defaultMesh.geometry.vertices[i].y = this.heightMlt * Math.sin( i / 5 + ( time + i ) / 4 );
+                        this.defaultMesh.geometry.vertices[i].y = range * Math.sin( i / 5 + ( time + i ) / 4 );
                     }
                     this.defaultMesh.geometry.verticesNeedUpdate = true;
                 }
@@ -1101,10 +1120,14 @@ class ObjectInstance extends THREE.Object3D {
         if (this.health) data.hp = this.health;
         
         if (this.prefab.canTerrain && this.planeType) {
-            if (this.heightSeg) data.sh = this.heightSeg;
-            if (this.widthSeg) data.sw = this.widthSeg;
-            if (this.heightMlt) data.hm = this.heightMlt;
+            if (this.ySeg) data.ys = this.ySeg;
+            if (this.xSeg) data.xs = this.xSeg;
+            if (this.maxHeight) data.mh = this.maxHeight;
             if (this.planeType) data.pt = this.planeType;
+            if (this.planeType == 1) {
+                data.sd = this.seed;
+                data.fq = this.frequency;
+            }
         }
         
         if (!this.visible) data.v = 1;
@@ -1282,10 +1305,12 @@ const editor = {
             health: 0,
             team: 0,
             visible: true,
-            heightMlt: 1,
-            heightSeg: 25,
-            widthSeg: 25,
-            planeType: 0
+            maxHeight: 10,
+            ySeg: 25,
+            xSeg: 25,
+            planeType: 0,
+            frequency: 2.5,
+            seed: 0.1
         };
         
         this.highlightObject = null;
@@ -2201,10 +2226,12 @@ const editor = {
         this.objConfig.direction = instance.direction;
         
         // PLANE ANIMATION
-        this.objConfig.heightMlt = instance.heightMlt;
-        this.objConfig.widthSeg = instance.widthSeg;
-        this.objConfig.heightSeg = instance.heightSeg;
+        this.objConfig.maxHeight = instance.maxHeight;
+        this.objConfig.xSeg = instance.xSeg;
+        this.objConfig.ySeg = instance.ySeg;
         this.objConfig.planeType = instance.planeType;
+        this.objConfig.seed = instance.seed;
+        this.objConfig.frequency = instance.frequency;
         let o;
 
         // BOOLEANS:
@@ -2255,18 +2282,27 @@ const editor = {
                 instance.planeType = t;
                 instance.resetPlane();
             });
-            o.add(this.objConfig, "heightMlt", 0.1, 4, .1).name("Height Amplifier").onChange(h => {
-                instance.heightMlt = h;
-                instance.resetPlane();
+            o.add(this.objConfig, "maxHeight", 1, 300, 1).name("Max Height").onChange(h => {
+                instance.maxHeight = h;
             });
-            o.add(this.objConfig, "widthSeg", 10, 256, 5).name("WSegments").onChange(w => {
-                instance.widthSeg = w;
-                instance.resetPlane();
+            o.add(this.objConfig, "xSeg", 10, 256, 5).name("X Segments").onChange(x => {
+                instance.xSeg = x;
             });
-            o.add(this.objConfig, "heightSeg", 10, 256, 5).name("HSegments").onChange(h => {
-                instance.heightSeg = h;
-                instance.resetPlane();
+            o.add(this.objConfig, "ySeg", 10, 256, 5).name("Y Segments").onChange(y => {
+                instance.ySeg = y;
             });
+            o.add(this.objConfig, "frequency", 0.1, 5, .1).name("Frequency").onChange(f => {
+                instance.frequency = f;
+            });
+            o.add(this.objConfig, "seed").name("Seed").onChange(y => {
+                instance.seed = y.toString();
+            });
+            let other = {
+                resetPlane: (() => instance.resetPlane()),
+                randomSeed: (() => (this.objConfig.seed = instance.seed = Math.random(), this.objConfigGUI.updateDisplay()))
+            };
+            o.add(other, "randomSeed").name("Randomize Seed");
+            o.add(other, "resetPlane").name("Regenerate");
             this.objConfigOptions.push(o);
         }
         
@@ -3151,7 +3187,7 @@ const editor = {
 };
 editor.init(document.getElementById("container"));
 
-},{"./config.js":1,"./data/map.js":2,"./data/prefabs.js":3,"./libs/OBJLoader.js":5,"./libs/PointerLockControls.js":6,"./libs/TransformControls.js":7,"./libs/geos.js":8,"./libs/render.js":9,"./libs/utils.js":10,"three":11}],5:[function(require,module,exports){
+},{"./config.js":1,"./data/map.js":2,"./data/prefabs.js":3,"./libs/OBJLoader.js":5,"./libs/PointerLockControls.js":6,"./libs/TransformControls.js":7,"./libs/geos.js":8,"./libs/render.js":10,"./libs/utils.js":11,"three":12}],5:[function(require,module,exports){
 
 module.exports = function(THREE) {
     return ( function () {
@@ -4539,7 +4575,194 @@ module.exports.generateCube = function (e, n, s, c, l) {
     }
     return o
 }
-},{"../config.js":1,"./utils.js":10,"three":11}],9:[function(require,module,exports){
+},{"../config.js":1,"./utils.js":11,"three":12}],9:[function(require,module,exports){
+/**
+* Simplex and Perlin noise.
+*
+* Copied with small edits from https://github.com/josephg/noisejs which is
+* public domain. Originally by Stefan Gustavson (stegu@itn.liu.se) with
+* optimizations by Peter Eastman (peastman@drizzle.stanford.edu) and converted
+* to JavaScript by Joseph Gentle.
+*/
+
+(function(global) {
+    var module = global.noise = {};
+
+    function Grad(x, y, z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+    }
+
+    Grad.prototype.dot2 = function(x, y) {
+        return this.x*x + this.y*y;
+    };
+
+    Grad.prototype.dot3 = function(x, y, z) {
+        return this.x*x + this.y*y + this.z*z;
+    };
+
+    var grad3 = [
+        new Grad(1,1,0),new Grad(-1,1,0),new Grad(1,-1,0),new Grad(-1,-1,0),
+        new Grad(1,0,1),new Grad(-1,0,1),new Grad(1,0,-1),new Grad(-1,0,-1),
+        new Grad(0,1,1),new Grad(0,-1,1),new Grad(0,1,-1),new Grad(0,-1,-1),
+    ];
+
+    var p = [151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,
+        30,69,142,8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,
+        252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,
+        168,68,175,74,165,71,134,139,48,27,166,77,146,158,231,83,111,229,122,
+        60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54,65,25,63,161,
+        1,216,80,73,209,76,132,187,208,89,18,169,200,196,135,130,116,188,159,
+        86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,5,202,38,147,
+        118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,223,183,
+        170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,129,
+        22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,228,
+        251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,
+        107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,
+        150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,
+        61,156,180];
+    // To avoid the need for index wrapping, double the permutation table length
+    var perm = new Array(512),
+        gradP = new Array(512);
+
+    // This isn't a very good seeding function, but it works okay. It supports
+    // 2^16 different seed values. Write your own if you need more seeds.
+    module.seed = function(seed) {
+        if (seed > 0 && seed < 1) {
+            // Scale the seed out
+            seed *= 65536;
+        }
+
+        seed = Math.floor(seed);
+        if (seed < 256) {
+            seed |= seed << 8;
+        }
+
+        for (var i = 0; i < 256; i++) {
+            var v;
+            if (i & 1) {
+                v = p[i] ^ (seed & 255);
+            }
+            else {
+                v = p[i] ^ ((seed>>8) & 255);
+            }
+
+            perm[i] = perm[i + 256] = v;
+            gradP[i] = gradP[i + 256] = grad3[v % 12];
+        }
+    };
+
+    module.seed(Math.random());
+
+    // Skewing and unskewing factors for 2 and 3 dimensions
+    var F2 = 0.5*(Math.sqrt(3)-1),
+        G2 = (3-Math.sqrt(3))/6,
+        F3 = 1/3,
+        G3 = 1/6;
+
+    // 2D simplex noise
+    module.simplex = function(xin, yin) {
+        var n0, n1, n2; // Noise contributions from the three corners
+        // Skew the input space to determine which simplex cell we're in
+        var s = (xin+yin)*F2; // Hairy factor for 2D
+        var i = Math.floor(xin+s);
+        var j = Math.floor(yin+s);
+        var t = (i+j)*G2;
+        var x0 = xin-i+t; // The x,y distances from the cell origin, unskewed
+        var y0 = yin-j+t;
+        // For the 2D case, the simplex shape is an equilateral triangle.
+        // Determine which simplex we are in.
+        var i1, j1; // Offsets for second (middle) corner of simplex in (i,j) coords
+        if (x0 > y0) { // Lower triangle, XY order: (0,0)->(1,0)->(1,1)
+            i1 = 1; j1 = 0;
+        }
+        else { // Upper triangle, YX order: (0,0)->(0,1)->(1,1)
+            i1 = 0; j1 = 1;
+        }
+        // A step of (1,0) in (i,j) means a step of (1-c,-c) in (x,y), and
+        // a step of (0,1) in (i,j) means a step of (-c,1-c) in (x,y), where
+        // c = (3-sqrt(3))/6
+        var x1 = x0 - i1 + G2; // Offsets for middle corner in (x,y) unskewed coords
+        var y1 = y0 - j1 + G2;
+        var x2 = x0 - 1 + 2 * G2; // Offsets for last corner in (x,y) unskewed coords
+        var y2 = y0 - 1 + 2 * G2;
+        // Work out the hashed gradient indices of the three simplex corners
+        i &= 255;
+        j &= 255;
+        var gi0 = gradP[i+perm[j]];
+        var gi1 = gradP[i+i1+perm[j+j1]];
+        var gi2 = gradP[i+1+perm[j+1]];
+        // Calculate the contribution from the three corners
+        var t0 = 0.5 - x0*x0-y0*y0;
+        if (t0 < 0) {
+            n0 = 0;
+        }
+        else {
+            t0 *= t0;
+            n0 = t0 * t0 * gi0.dot2(x0, y0); // (x,y) of grad3 used for 2D gradient
+        }
+        var t1 = 0.5 - x1*x1-y1*y1;
+        if (t1 < 0) {
+            n1 = 0;
+        }
+        else {
+            t1 *= t1;
+            n1 = t1 * t1 * gi1.dot2(x1, y1);
+        }
+        var t2 = 0.5 - x2*x2-y2*y2;
+        if (t2 < 0) {
+            n2 = 0;
+        }
+        else {
+            t2 *= t2;
+            n2 = t2 * t2 * gi2.dot2(x2, y2);
+        }
+        // Add contributions from each corner to get the final noise value.
+        // The result is scaled to return values in the interval [-1,1].
+        return 70 * (n0 + n1 + n2);
+    };
+
+    // ##### Perlin noise stuff
+
+    function fade(t) {
+        return t*t*t*(t*(t*6-15)+10);
+    }
+
+    function lerp(a, b, t) {
+        return (1-t)*a + t*b;
+    }
+
+    // 2D Perlin Noise
+    module.perlin = function(x, y) {
+        // Find unit grid cell containing point
+        var X = Math.floor(x),
+            Y = Math.floor(y);
+        // Get relative xy coordinates of point within that cell
+        x = x - X;
+        y = y - Y;
+        // Wrap the integer cells at 255 (smaller integer period can be introduced here)
+        X = X & 255;
+        Y = Y & 255;
+
+        // Calculate noise contributions from each of the four corners
+        var n00 = gradP[X+perm[Y]].dot2(x, y);
+        var n01 = gradP[X+perm[Y+1]].dot2(x, y-1);
+        var n10 = gradP[X+1+perm[Y]].dot2(x-1, y);
+        var n11 = gradP[X+1+perm[Y+1]].dot2(x-1, y-1);
+
+        // Compute the fade curve value for x
+        var u = fade(x);
+
+        // Interpolate the four results
+        return lerp(
+            lerp(n00, n10, u),
+            lerp(n01, n11, u),
+            fade(y)
+        );
+    };
+})(this);
+},{}],10:[function(require,module,exports){
 var i = require("../config.js"),
 o = require("three");
 module.exports = function (e, i, o) {
@@ -5008,7 +5231,7 @@ module.exports.initScene = function (t) {
     this.useDepthMap && "0" != this.useDepthMap && this.toggleDepthMap(this.useDepthMap),
     this.greenScreen && this.toggleGreenscreen(this.greenScreen)
 }
-},{"../config.js":1,"./geos.js":8,"three":11}],10:[function(require,module,exports){
+},{"../config.js":1,"./geos.js":8,"three":12}],11:[function(require,module,exports){
 module.exports.keyboardMap = "   CANCEL   HELP  BACK_SPACE TAB   CLEAR ENTER ENTER_SPECIAL  SHIFT CONTROL ALT PAUSE CAPS_LOCK KANA EISU JUNJA FINAL HANJA  ESCAPE CONVERT NONCONVERT ACCEPT MODECHANGE SPACE PAGE_UP PAGE_DOWN END HOME LEFT UP RIGHT DOWN SELECT PRINT EXECUTE PRINTSCREEN INSERT DELETE  0 1 2 3 4 5 6 7 8 9 COLON SEMICOLON LESS_THAN EQUALS GREATER_THAN QUESTION_MARK AT A B C D E F G H I J K L M N O P Q R S T U V W X Y Z OS_KEY  CONTEXT_MENU  SLEEP NUMPAD0 NUMPAD1 NUMPAD2 NUMPAD3 NUMPAD4 NUMPAD5 NUMPAD6 NUMPAD7 NUMPAD8 NUMPAD9 MULTIPLY ADD SEPARATOR SUBTRACT DECIMAL DIVIDE F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F15 F16 F17 F18 F19 F20 F21 F22 F23 F24         NUM_LOCK SCROLL_LOCK WIN_OEM_FJ_JISHO WIN_OEM_FJ_MASSHOU WIN_OEM_FJ_TOUROKU WIN_OEM_FJ_LOYA WIN_OEM_FJ_ROYA          CIRCUMFLEX EXCLAMATION DOUBLE_QUOTE HASH DOLLAR PERCENT AMPERSAND UNDERSCORE OPEN_PAREN CLOSE_PAREN ASTERISK PLUS PIPE HYPHEN_MINUS OPEN_CURLY_BRACKET CLOSE_CURLY_BRACKET TILDE     VOLUME_MUTE VOLUME_DOWN VOLUME_UP   SEMICOLON EQUALS COMMA MINUS PERIOD SLASH BACK_QUOTE                           OPEN_BRACKET BACK_SLASH CLOSE_BRACKET QUOTE  META ALTGR  WIN_ICO_HELP WIN_ICO_00  WIN_ICO_CLEAR   WIN_OEM_RESET WIN_OEM_JUMP WIN_OEM_PA1 WIN_OEM_PA2 WIN_OEM_PA3 WIN_OEM_WSCTRL WIN_OEM_CUSEL WIN_OEM_ATTN WIN_OEM_FINISH WIN_OEM_COPY WIN_OEM_AUTO WIN_OEM_ENLW WIN_OEM_BACKTAB ATTN CRSEL EXSEL EREOF PLAY ZOOM  PA1 WIN_OEM_CLEAR ".split(" "),
 module.exports.getB64Size = function () {},
 Number.prototype.round = function (t) {
@@ -5300,7 +5523,7 @@ Array.prototype.flatMap = function (t) {
     }
     (t, this)
 }
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
