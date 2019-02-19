@@ -242,14 +242,15 @@ class ObjectInstance extends THREE.Object3D {
         this.opacity = (data.o!=undefined?data.o:1);
         this.direction = data.d; // May be undefined
         
-        // PLAIN ANIMATION
-        this.maxHeight = (data.mh||1);
-        this.xSeg = (data.xs||25);
-        this.ySeg = (data.ys||25);
-        this.planeType = (data.pt||0);
-        this.frequency = (data.fq||2.5);
-        this.seed = (data.sd||Math.random());
-        this.speedMlt = (data.sm||10);
+        // PLAIN ANIMATION & TERRAIN
+        this.planeType = data.ap ? 2 : (data.tr ? 1 : 0);
+        let plane = this.planeType > 0 ? (data.ap || data.tr).split(',') : [];
+        this.xSeg = (plane[0] != undefined ? plane[0] : 25);
+        this.ySeg = (plane[1] != undefined ? plane[1] : 25);
+        this.maxHeight = (plane[2] != undefined ? plane[2] : 1);
+        this.frequency = this.planeType == 1 ? (plane[3] != undefined ? plane[3] : 2.5) : 2.5;
+        this.speedMlt = this.planeType == 2 ? (plane[3] != undefined ? plane[3] : 10) : 10;
+        this.seed = (plane[4] != undefined ? plane[4] : Math.random());
 
         // Generate the content
         let prefabPromises = [];
@@ -374,17 +375,8 @@ class ObjectInstance extends THREE.Object3D {
         if (this.health) data.hp = this.health;
         
         if (this.prefab.canTerrain && this.planeType) {
-            if (this.ySeg) data.ys = this.ySeg;
-            if (this.xSeg) data.xs = this.xSeg;
-            if (this.maxHeight) data.mh = this.maxHeight;
-            if (this.planeType) data.pt = this.planeType;
-            if (this.planeType == 1) {
-                data.sd = this.seed;
-                data.fq = this.frequency;
-            }
-            if (this.planeType == 2) {
-                data.sm = this.speedMlt;
-            }
+            if (this.planeType == 1) data.tr = [this.xSeg, this.ySeg, this.maxHeight, this.frequency, this.seed].join(',');
+            if (this.planeType == 2) data.ap = [this.xSeg, this.ySeg, this.maxHeight, this.speedMlt].join(',');
         }
         
         if (!this.visible) data.v = 1;
