@@ -1056,10 +1056,7 @@ const editor = {
                     this.setTransformType(2);
                     break;
                 case 192: // grave accent
-                    let pGen = new ParticleGenerator({cnt:2000, ps:20});
-                    this.scene.add(pGen);
-                    pGen.update();
-                    //this.setTransformSpace(this.transformSpace === 0 ? 1 : 0);
+                    this.setTransformSpace(this.transformSpace === 0 ? 1 : 0);
                     break;
                 case 8:
                 case 46: // delete, backspace
@@ -1682,8 +1679,8 @@ const editor = {
             let rotation = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Assets"].__controllers[1].getValue());
             let yAxis = new THREE.Vector3(0, 1, 0);
             if (fix) {
-                if (fix != "RAMP") this.objConfigGUI.__controllers[1].setValue(false);
-                if (fix != "RAMP") rotation = 360 - THREE.Math.radToDeg(selected.rotation.y);
+                if (fix != 'RAMP') this.objConfigGUI.__controllers[1].setValue(false);
+                if (['VEHICLE', 'CONTAINER', 'CONTAINERR'].includes(fix)) rotation = 360 - THREE.Math.radToDeg(selected.rotation.y);
             }
             
             if ([90, 180, 270].includes(rotation)) {
@@ -2462,49 +2459,3 @@ const editor = {
     }
 };
 editor.init(document.getElementById("container"));
-
-let ParticleGenerator = function(data) {
-    this.particleCount = data.cnt;
-    this.particleGeometry = new THREE.Geometry();
-    for (let p = 0; p < this.particleCount; p++) {
-        let pX = Math.random() * 500 - 250,
-            pY = Math.random() * 500 - 250,
-            pZ = Math.random() * 500 - 250,
-            particle = new THREE.Vertex(new THREE.Vector3(pX, pY, pZ));
-
-        particle.velocity = new THREE.Vector3(0, -Math.random(), 0);
-        this.particleGeometry.vertices.push(particle);
-    }
-    THREE.Points.call(
-        this,
-        this.particleGeometry,
-        new THREE.PointsMaterial({
-            color: 0xFFFFFF,
-            size: data.ps, // Particle Size
-            map: new THREE.TextureLoader().load("textures/particles/0.png"),
-            blending: THREE.AdditiveBlending,
-            transparent: true
-        })
-    );
-}
-ParticleGenerator.prototype = Object.create(THREE.Points.prototype);
-ParticleGenerator.prototype.constructor = ParticleGenerator;
-ParticleGenerator.prototype.update = function() {
-    this.rotation.y += 0.01;
-    
-    let pCount = this.particleCount;
-    while (pCount--) {
-        let particle = this.particleGeometry.vertices[pCount];
-        if (particle.y < -200) {
-            particle.y = 200;
-            particle.velocity.y = 0;
-        }
-        
-        // update the velocity
-        particle.velocity.y -= Math.random() * .1;
-        
-        // and the position
-        particle.add(particle.velocity);
-    }
-    this.geometry.verticesNeedUpdate = true;
-}

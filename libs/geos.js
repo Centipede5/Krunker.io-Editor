@@ -1,84 +1,93 @@
-var r = require("three");
+var n = require("three");
 const i = require("../config.js");
 require("./utils.js");
-var o,
-s = {};
+var o = {};
+       
 module.exports.getColor = function (t, e) {
-    var n = t + "-" + (e || ""),
-    i = s[n];
-    return i || (i = new r.Color(t), e && i.multiplyScalar(e), s[n] = i),
-    i
+	var r = t + "-" + (e || ""),
+	i = o[r];
+	return i || (i = new n.Color(t), e && i.multiplyScalar(e), o[r] = i),
+	i
 },
-module.exports.colorize = function (e, n, r) {
-    n = r || module.exports.getColor(n);
-    for (var i = 0; i < e.faces.length; ++i)
-        e.faces[i].vertexColors[0] = n, e.faces[i].vertexColors[1] = n, e.faces[i].vertexColors[2] = n
+module.exports.colorize = function (e, r, n) {
+	r = n || module.exports.getColor(r);
+	for (var i = 0; i < e.faces.length; ++i)
+		e.faces[i].vertexColors[0] = r, e.faces[i].vertexColors[1] = r, e.faces[i].vertexColors[2] = r
 };
-var a = function (t, e, n, i) {
-    for (var o = new r.Vector2(e, n).multiplyScalar(i || 1), s = 0; s < t.faceVertexUvs.length; s++)
-        for (var a = t.faceVertexUvs[s], c = 0; c < a.length; c++)
-            for (var l = 0; l < 3; l++) {
-                var h = a[c][l].multiply(o);
-                h.x = .5 + h.x - o.x / 2
-            }
+var s,
+a = function (t, e, r, i) {
+	for (var o, s = new n.Vector2(e, r).multiplyScalar(i || 1), a = 0; a < t.faceVertexUvs.length; a++) {
+		o = t.faceVertexUvs[a];
+		for (var c = 0; c < o.length; c++)
+			for (var l, h = 0; 3 > h; h++)
+				(l = o[c][h].multiply(s)).x = .5 + l.x - s.x / 2
+                                        
+	}
 },
-c = function (t, e, n, r, i, o) {
-    return t >= n - i && t <= n + i && e >= r - o && e <= r + o
+c = function (t, e, r, n, i, o) {
+	return t >= r - i && t <= r + i && e >= n - o && e <= n + o
 },
 l = [],
 h = ["a", "b", "c", "d"];
-module.exports.generatePlane = function (e, n, s) {
-    e *= s.ratio || 1;
-    var p = (s.scale ? e + "_" + n + "_" : "") + (s.scale || "") + (s.tilesX || "") + (s.tilesZ || "") + (void 0 != s.colr ? s.colr : "");
-    if (!(o = l[p])) {
-        if (o = new r.PlaneGeometry(1, 1, s.tilesX || 1, s.tilesZ || 1), s.noise) {
-            for (var u = {}, d = s.margin || 0, f = 0; f < o.vertices.length; ++f) {
-                var m = o.vertices[f].x,
-                g = o.vertices[f].y;
-                if (!s.pinEdges ||  - .5 != m && .5 != m &&  - .5 != g && .5 != g)
-                    if (s.objects) {
-                        for (var v = 0; v < s.objects.length; ++v)
-                            if (s.objects[v].y - s.objects[v].height <= .1 && 2 * s.objects[v].height > s.noise && c(-g * e * 2, m * n * 2, s.objects[v].z, s.objects[v].x, s.objects[v].length + d, s.objects[v].width + d)) {
-                                o.vertices[f].z = Math.random() * s.noise + 1,
-                                u[f] = module.exports.getColor(s.colr, .65);
-                                break
-                            }
-                    } else
-                        o.vertices[f].z = Math.random() * s.noise;
-                u[f] || (u[f] = module.exports.getColor(s.colr))
-            }
-            for (f = 0; f < o.faces.length; f++) {
-                for (var y = o.faces[f], x = 0, b = 0; b < 3; b++)
-                    y.vertexColors[b] = u[y[h[b]]], o.vertices[y[h[b]]].z <= 0 && x++;
-                x >= 3 && delete o.faces[f]
-            }
-            o.faces = o.faces.filter(function (t) {
-                    return t
-                }),
-            o.elementsNeedUpdate = !0
-        } else
-            s.colr && module.exports.colorize(o, s.colr);
-        s.scale && a(o, n / i.worldUV, e / i.worldUV, s.scale),
-        l[p] = o
-    }
-    return o
+module.exports.generatePlane = function (e, r, o, p, u, d) {
+	e *= o.ratio || 1;
+	var f = (o.scale ? e + "_" + r + "_" : "") + (o.scale || "") + (o.tilesX || "") + (o.tilesZ || "") + (o.noise ? p + "_" + u + "_" + d : "") + (null == o.colr ? "" : o.colr);
+	if (!(s = l[f])) {
+		if (s = new n.PlaneGeometry(1, 1, o.tilesX || 1, o.tilesZ || 1), o.noise) {
+			for (var m = {}, g = o.margin || 0, v = 0; v < s.vertices.length; ++v) {
+				var y = s.vertices[v].x,
+				x = s.vertices[v].y;
+				if (!o.pinEdges ||  - .5 != y && .5 != y &&  - .5 != x && .5 != x)
+					if (o.objects) {
+						for (var b = 0; b < o.objects.length; ++b)
+							if (o.objects[b].y - o.objects[b].height <= u + .1 && o.objects[b].y + o.objects[b].height > u + o.noise && c(d + -x * e * 2, p + y * r * 2, o.objects[b].z, o.objects[b].x, o.objects[b].length + g, o.objects[b].width + g)) {
+								s.vertices[v].z = Math.random() * o.noise + 1,
+								m[v] = module.exports.getColor(o.colr, .5);
+								break
+							}
+					} else
+						s.vertices[v].z = Math.random() * o.noise;
+				m[v] || (m[v] = module.exports.getColor(o.colr))
+			}
+			for (v = 0; v < s.faces.length; v++) {
+				for (var w = s.faces[v], M = 0, _ = 0; 3 > _; _++)
+					w.vertexColors[_] = m[w[h[_]]], 0 >= s.vertices[w[h[_]]].z && M++;
+				3 <= M && delete s.faces[v]
+			}
+			s.faces = s.faces.filter(function (t) {
+					return t
+				}),
+			s.elementsNeedUpdate = !0
+		} else
+			o.colr && module.exports.colorize(s, o.colr);
+		o.scale && a(s, r / i.worldUV, e / i.worldUV, o.scale),
+		s.computeVertexNormals(),
+		l[f] = s
+	}
+	return s
 };
 var p = [];
-module.exports.generateCube = function (e, n, s, c, l) {
-    e = e || [1, 1, 1, 1, 1, 1];
-    for (var h = (l.scale ? n + "_" + s + "_" + c + "_" : "") + (void 0 != l.colr ? l.colr : "") + (l.scale || "") + (l.amb || "") + (l.useScale || ""), u = 0; u < e.length; ++u)
-        h += "_" + e[u];
-    if (!(o = p[h])) {
-        l.colr = void 0 != l.colr ? l.colr : 16777215;
-        var d = module.exports.getColor(l.colr),
-        f = l.noAmb ? d : l.amb ? module.exports.getColor(l.colr, i.ambientVal + l.amb * (1 - i.ambientVal)) : d;
-        o = new r.Geometry;
-        var m,
-        g = [];
-        for (e[0] && ((m = new r.PlaneGeometry(1, 1)).rotateY(Math.PI / 2), m.translate(.5, .5, 0), m.faces[0].vertexColors = [d, f, d], m.faces[1].vertexColors = [f, f, d], l.scale && a(m, c / i.worldUV, s / i.worldUV, l.scale), g.push(m)), e[1] && ((m = new r.PlaneGeometry(1, 1)).rotateY(-Math.PI / 2), m.translate( - .5, .5, 0), m.faces[0].vertexColors = [d, f, d], m.faces[1].vertexColors = [f, f, d], l.scale && a(m, c / i.worldUV, s / i.worldUV, l.scale), g.push(m)), e[2] && ((m = new r.PlaneGeometry(1, 1)).rotateX(-Math.PI / 2), m.translate(0, 1, 0), m.faces[0].vertexColors = [d, d, d], m.faces[1].vertexColors = [d, d, d], l.scale && a(m, n / i.worldUV, c / i.worldUV, l.scale), g.push(m)), e[3] && ((m = new r.PlaneGeometry(1, 1)).rotateX(Math.PI / 2), m.translate(0, 0, 0), m.faces[0].vertexColors = [f, f, f], m.faces[1].vertexColors = [f, f, f], l.scale && a(m, n / i.worldUV, c / i.worldUV, l.scale), g.push(m)), e[4] && ((m = new r.PlaneGeometry(1, 1)).translate(0, .5, .5), m.faces[0].vertexColors = [d, f, d], m.faces[1].vertexColors = [f, f, d], l.scale && a(m, n / i.worldUV, s / i.worldUV, l.scale), g.push(m)), e[5] && ((m = new r.PlaneGeometry(1, 1)).rotateY(Math.PI), m.translate(0, .5,  - .5), m.faces[0].vertexColors = [d, f, d], m.faces[1].vertexColors = [f, f, d], l.scale && a(m, n / i.worldUV, s / i.worldUV, l.scale), g.push(m)), u = 0; u < g.length; u++)
-            o.merge(g[u], new r.Matrix4);
-        l && l.useScale && (o.scale(n, s, c), o.translate(0, -s / 2, 0)),
-        p[h] = o
-    }
-    return o
+module.exports.generateCube = function (e, r, o, c, l) {
+	e = e || [1, 1, 1, 1, 1, 1];
+	for (var h = (l.scale ? r + "_" + o + "_" + c + "_" : "") + (null == l.colr ? "" : l.colr) + (l.scale || "") + (l.amb || "") + (l.useScale || ""), u = 0; u < e.length; ++u)
+		h += "_" + e[u];
+	if (!(s = p[h])) {
+		l.colr = null == l.colr ? 16777215 : l.colr;
+		var d = module.exports.getColor(l.colr),
+		f = d;
+		s = new n.Geometry;
+		var m,
+		g = [];
+		e[0] && ((m = new n.PlaneGeometry(1, 1)).rotateY(Math.PI / 2), m.translate(.5, .5, 0), m.faces[0].vertexColors = [d, f, d], m.faces[1].vertexColors = [f, f, d], l.scale && a(m, c / i.worldUV, o / i.worldUV, l.scale), g.push(m)),
+		e[1] && ((m = new n.PlaneGeometry(1, 1)).rotateY(-Math.PI / 2), m.translate( - .5, .5, 0), m.faces[0].vertexColors = [d, f, d], m.faces[1].vertexColors = [f, f, d], l.scale && a(m, c / i.worldUV, o / i.worldUV, l.scale), g.push(m)),
+		e[2] && ((m = new n.PlaneGeometry(1, 1)).rotateX(-Math.PI / 2), m.translate(0, 1, 0), m.faces[0].vertexColors = [d, d, d], m.faces[1].vertexColors = [d, d, d], l.scale && a(m, r / i.worldUV, c / i.worldUV, l.scale), g.push(m)),
+		e[3] && ((m = new n.PlaneGeometry(1, 1)).rotateX(Math.PI / 2), m.translate(0, 0, 0), m.faces[0].vertexColors = [f, f, f], m.faces[1].vertexColors = [f, f, f], l.scale && a(m, r / i.worldUV, c / i.worldUV, l.scale), g.push(m)),
+		e[4] && ((m = new n.PlaneGeometry(1, 1)).translate(0, .5, .5), m.faces[0].vertexColors = [d, f, d], m.faces[1].vertexColors = [f, f, d], l.scale && a(m, r / i.worldUV, o / i.worldUV, l.scale), g.push(m)),
+		e[5] && ((m = new n.PlaneGeometry(1, 1)).rotateY(Math.PI), m.translate(0, .5,  - .5), m.faces[0].vertexColors = [d, f, d], m.faces[1].vertexColors = [f, f, d], l.scale && a(m, r / i.worldUV, o / i.worldUV, l.scale), g.push(m));
+		for (u = 0; u < g.length; u++)
+			s.merge(g[u], new n.Matrix4);
+		l && l.useScale && (s.scale(r, o, c), s.translate(0, -o / 2, 0)),
+		p[h] = s
+	}
+	return s
 }
