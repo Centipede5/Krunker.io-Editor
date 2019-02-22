@@ -492,6 +492,15 @@ const editor = {
                 update.opacity = data.o!=undefined?data.o:1;
                 update.direction = data.d || undefined;
                 
+                update.planeType = data.ap ? 2 : (data.tr ? 1 : 0);
+                let plane = update.planeType > 0 ? (data.ap || data.tr).split(',') : [];
+                update.xSeg = (plane[0] != undefined ? plane[0] : 25);
+                update.ySeg = (plane[1] != undefined ? plane[1] : 25);
+                update.maxHeight = (plane[2] != undefined ? plane[2] : 1);
+                update.frequency = update.planeType == 1 ? (plane[3] != undefined ? plane[3] : 2.5) : 2.5;
+                update.speedMlt = update.planeType == 2 ? (plane[3] != undefined ? plane[3] : 10) : 10;
+                update.seed = (plane[4] != undefined ? plane[4] : Math.random());
+                
                 this.objHistory[last.obj.uuid] = update.serialize();
                 break;
         }
@@ -581,6 +590,8 @@ const editor = {
             imageSize: 1,
             assetAutoGroup: true,
             preserveFolderState: true,
+            translationSnapping: 1,
+            rotationSnapping: 10,
         };
         this.copy = null;
         this.objGroups = [];
@@ -731,7 +742,8 @@ const editor = {
             plannerZSpace: 0,
             plannerSize: 10,
             plannerColor: '#460050',
-            plannerExecute: (() => this.layoutPlanner())
+            plannerExecute: (() => this.layoutPlanner()),
+            snappingReset: (() => (this.setSettings('translationSnapping', 1), this.setSettings('rotationSnapping', 10), this.advancedGUI.updateDisplay())),
         };
         
         let mainMenu = this.advancedGUI.addFolder("Advanced");
@@ -846,6 +858,11 @@ const editor = {
         speedMenu.add(this.settings, "speedNormal").name("Normal").onChange(t => {this.setSettings('speedNormal', Math.abs(t) || this.defaultSettings.speedNormal)});      
         speedMenu.add(this.settings, "speedSprint").name("Sprinting").onChange(t => {this.setSettings('speedSprint', Math.abs(t) || this.defaultSettings.speedSprint)});
         speedMenu.add(options, "speedReset").name("Reset Speed");
+        
+        let snappingMenu = settingsMenu.addFolder('Snapping');
+        snappingMenu.add(this.settings, "translationSnapping", 1, 25, 1).name("Translation").onChange(t => {this.setSettings('translationSnapping', Math.abs(t) || this.defaultSettings.translationSnapping),this.updateSnapping()});      
+        snappingMenu.add(this.settings, "rotationSnapping", 5, 45, 5).name("Rotation").onChange(t => {this.setSettings('rotationSnapping', Math.abs(t) || this.defaultSettings.rotationSnapping),this.updateSnapping()});
+        snappingMenu.add(options, "snappingReset").name("Reset Snapping");
 
         settingsMenu.add(options, "reset").name("Reset All Settings");    
     },
@@ -1417,8 +1434,8 @@ const editor = {
         }
     },
     snappingEnabled: true,
-    translationSnapping: 1,
-    rotationSnapping: 10,
+    //translationSnapping: 1,
+    //rotationSnapping: 10,
     setSnapping(enabled) {
         this.snappingEnabled = enabled;
         this.updateSnapping();
@@ -1426,8 +1443,8 @@ const editor = {
     updateSnapping() {
 
         // Set snapping
-        this.transformControl.setTranslationSnap(this.snappingEnabled ? this.translationSnapping : null);
-        this.transformControl.setRotationSnap(this.snappingEnabled ? THREE.Math.degToRad(this.rotationSnapping) : null);
+        this.transformControl.setTranslationSnap(this.snappingEnabled ? this.settings.translationSnapping : null);
+        this.transformControl.setRotationSnap(this.snappingEnabled ? THREE.Math.degToRad(this.settings.rotationSnapping) : null);
 
         // Update grid helper
         this.updateGridHelper();
