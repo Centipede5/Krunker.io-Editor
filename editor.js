@@ -434,94 +434,6 @@ ObjectInstance.boundingNoncollidableBoxMaterial = new THREE.LineBasicMaterial({ 
 // EDITOR OBJECT:
 const editor = {
     
-    addToHistory(cmd, object, history = null) {
-        let save = {action: cmd, obj: object, history: history};
-        switch (cmd) {
-            case 'add': 
-            case 'remove':
-            case 'update':
-                this.undos.push(save);
-                break;
-        }
-    },
-    executeHistory(type = 'undo') {
-        let last = type == 'undo' ? this.undos.pop() : this.redos.pop();
-        if (!last) return;
-        switch (last.action) {
-            case 'add': 
-                if (type == 'undo') {
-                    let rem = this.objInstances.filter(x => x.uuid == last.obj.uuid);
-                    delete this.objHistory[last.obj.uuid];
-                    this.removeObject(rem[0], false, false);
-                    this.redos.push(last);
-                } else {
-                    this.addObject(last.obj, false, false);
-                }
-                break;
-
-            case 'remove':
-                if (type == 'undo') {
-                    console.log(last.obj);
-                    this.addObject(last.obj, false, false);
-                    this.redos.push(last);
-                } else {
-                    delete this.objHistory[last.obj.uuid];
-                    this.removeObject(last.obj, false, false);
-                }
-                break;
-
-            case 'update':
-                if (type == 'undo') this.redos.push(last);
-                let update = this.objInstances.filter(x => x.uuid == last.obj.uuid)[0];
-                let data = last.history;
-                update.pos = data.p;
-                update.size = data.s;
-                update.rotation = data.r || [0, 0, 0];
-                update.collidable = data.col===undefined?true:false;        
-                update.penetrable = data.pe?true:false; 
-                update.texture = (config.textureIDS[data.t||0])||ObjectInstance.DEFAULT_TEXTURE;
-                update.boost = data.b || 0;
-                update.edgeNoise = data.en || 0;
-                update.health = data.hp || 0;
-                update.part = data.pr || 0;
-                update.team = data.tm || 0;
-                update.visible = data.v===undefined?true:false;
-                update.terrain = data.ter||false;
-                update.color = data.c!=undefined?data.c:'#FFFFFF';
-                update.emissive = data.e!=undefined?data.e:'#000000';
-                update.opacity = data.o!=undefined?data.o:1;
-                update.direction = data.d || undefined;
-                
-                update.planeType = data.ap ? 2 : (data.tr ? 1 : 0);
-                let plane = update.planeType > 0 ? (data.ap || data.tr).split(',') : [];
-                update.xSeg = (plane[0] != undefined ? plane[0] : 25);
-                update.ySeg = (plane[1] != undefined ? plane[1] : 25);
-                update.maxHeight = (plane[2] != undefined ? plane[2] : 1);
-                update.frequency = update.planeType == 1 ? (plane[3] != undefined ? plane[3] : 2.5) : 2.5;
-                update.speedMlt = update.planeType == 2 ? (plane[3] != undefined ? plane[3] : 10) : 10;
-                update.seed = (plane[4] != undefined ? plane[4] : Math.random());
-                
-                this.objHistory[last.obj.uuid] = update.serialize();
-                break;
-        }
-    },
-    initHistory() {
-        let scope = this;
-        setInterval(function() {
-            for (let instance of scope.objInstances) {
-                if (scope.objHistory[instance.uuid]) {
-                    let prev = JSON.stringify(scope.objHistory[instance.uuid]);
-                    let curr = JSON.stringify(instance.serialize());
-                    if (prev != curr) {
-                        scope.addToHistory('update', instance, scope.objHistory[instance.uuid]);
-                    }
-                }
-                
-                scope.objHistory[instance.uuid] = instance.serialize();
-            }
-        }, 1000); 
-    },
-    
     // INIT:
     init(container) {
 
@@ -576,7 +488,6 @@ const editor = {
         this.defaultSettings = null;
         this.settings = {
             degToRad: false,
-            backupMap: false,
             antiAlias: false,
             gridVisibility: true,
             gridOpacity: .25,
@@ -592,7 +503,9 @@ const editor = {
             preserveFolderState: true,
             translationSnapping: 1,
             rotationSnapping: 10,
+            autoBackup: 0
         };
+        this.backupInterval = null;
         this.copy = null;
         this.objGroups = [];
         this.hexToRGBArray = ((hex) => hex.match(/[A-Za-z0-9]{2}/g).map(v => parseInt(v, 16)));
@@ -606,6 +519,7 @@ const editor = {
         this.initAdvancedGUI();
         this.initControls();
         this.initHistory();
+        this.initAutoBackup();
         this.registerEvents();
         this.setSnapping(true);
 
@@ -837,10 +751,9 @@ const editor = {
         plannerMenu.add(options, "plannerExecute").name("Execute");
         
         otherMenu.add(options, "textGen").name("Text Generator");
-        //otherMenu.add(options, "exportToObj").name("Export To Obj");
         
         let settingsMenu = mainMenu.addFolder('Settings');
-        settingsMenu.add(this.settings, "backupMap").name("Auto Backup").onChange(t => {this.setSettings('backupMap', t)});
+        settingsMenu.add(this.settings, "autoBackup", 0, 25, 1).name("Backup Timer").onChange(t => {this.setSettings('autoBackup', Math.abs(t)),this.initAutoBackup()});
         settingsMenu.add(this.settings, "antiAlias").name("Anti-aliasing").onChange(t => {this.setSettings('antiAlias', t), alert("This change will occur after you refresh")});   
         settingsMenu.add(this.settings, "objectHighlight").name("Hightlight").onChange(t => {this.setSettings('objectHighlight', t)});
 
@@ -894,6 +807,115 @@ const editor = {
         for (let set in jsp) {
             this.settings[set] = jsp[set];
         }  
+    },
+
+    // AUTO BACKUP
+    initAutoBackup() {
+        if (this.backupInterval) {
+            clearInterval(this.backupInterval);
+            this.backupInterval = null;
+        }
+        if (this.settings.autoBackup == 0) return;
+
+        let milli = this.settings.autoBackup * 60000;
+        
+        let scope = this;
+        this.backupInterval = setInterval(function() {
+            if (scope.objInstances.length == 0) return;
+            let oldname = scope.mapConfig.name;
+            scope.mapConfig.name = scope.mapConfig.name + '_backup_' + Math.floor(Date.now() / 1000); 
+            scope.exportMap();
+            scope.mapConfig.name = oldname;
+        }, milli);
+    },
+
+    // INIT HISTORY (UNDO / REDO)
+    initHistory() {
+        let scope = this;
+        setInterval(function() {
+            for (let instance of scope.objInstances) {
+                if (scope.objHistory[instance.uuid]) {
+                    let prev = JSON.stringify(scope.objHistory[instance.uuid]);
+                    let curr = JSON.stringify(instance.serialize());
+                    if (prev != curr) {
+                        scope.addToHistory('update', instance, scope.objHistory[instance.uuid]);
+                    }
+                }
+                
+                scope.objHistory[instance.uuid] = instance.serialize();
+            }
+        }, 1000); 
+    },
+    addToHistory(cmd, object, history = null) {
+        let save = {action: cmd, obj: object, history: history};
+        switch (cmd) {
+            case 'add': 
+            case 'remove':
+            case 'update':
+                this.undos.push(save);
+                break;
+        }
+    },
+    executeHistory(type = 'undo') {
+        let last = type == 'undo' ? this.undos.pop() : this.redos.pop();
+        if (!last) return;
+        switch (last.action) {
+            case 'add': 
+                if (type == 'undo') {
+                    let rem = this.objInstances.filter(x => x.uuid == last.obj.uuid);
+                    delete this.objHistory[last.obj.uuid];
+                    this.removeObject(rem[0], false, false);
+                    this.redos.push(last);
+                } else {
+                    this.addObject(last.obj, false, false);
+                }
+                break;
+
+            case 'remove':
+                if (type == 'undo') {
+                    console.log(last.obj);
+                    this.addObject(last.obj, false, false);
+                    this.redos.push(last);
+                } else {
+                    delete this.objHistory[last.obj.uuid];
+                    this.removeObject(last.obj, false, false);
+                }
+                break;
+
+            case 'update':
+                if (type == 'undo') this.redos.push(last);
+                let update = this.objInstances.filter(x => x.uuid == last.obj.uuid)[0];
+                let data = last.history;
+                update.pos = data.p;
+                update.size = data.s;
+                update.rotation = data.r || [0, 0, 0];
+                update.collidable = data.col===undefined?true:false;        
+                update.penetrable = data.pe?true:false; 
+                update.texture = (config.textureIDS[data.t||0])||ObjectInstance.DEFAULT_TEXTURE;
+                update.boost = data.b || 0;
+                update.edgeNoise = data.en || 0;
+                update.health = data.hp || 0;
+                update.part = data.pr || 0;
+                update.team = data.tm || 0;
+                update.visible = data.v===undefined?true:false;
+                update.terrain = data.ter||false;
+                update.color = data.c!=undefined?data.c:'#FFFFFF';
+                update.emissive = data.e!=undefined?data.e:'#000000';
+                update.opacity = data.o!=undefined?data.o:1;
+                update.direction = data.d || undefined;
+                
+                update.planeType = data.ap ? 2 : (data.tr ? 1 : 0);
+                let plane = update.planeType > 0 ? (data.ap || data.tr).split(',') : [];
+                update.xSeg = (plane[0] != undefined ? plane[0] : 25);
+                update.ySeg = (plane[1] != undefined ? plane[1] : 25);
+                update.maxHeight = (plane[2] != undefined ? plane[2] : 1);
+                update.frequency = update.planeType == 1 ? (plane[3] != undefined ? plane[3] : 2.5) : 2.5;
+                update.speedMlt = update.planeType == 2 ? (plane[3] != undefined ? plane[3] : 10) : 10;
+                update.seed = (plane[4] != undefined ? plane[4] : Math.random());
+                
+                this.objHistory[last.obj.uuid] = update.serialize();
+                break;
+        }
     },
 
     // INIT RENDERER:
@@ -1827,8 +1849,6 @@ const editor = {
         return jsp;
     },
     reflectMap() {
-        if (this.settings.backupMap) this.exportMap();
-
         let dir = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Reflect Map"].__controllers[0].getValue()),
         reference = this.findMapCenter();
 
@@ -1844,7 +1864,7 @@ const editor = {
             }
         }
         this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Reflect Map"].__controllers[0].setValue(0);
-        this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Reflect Map"].close();
+        if (!this.settings.preserveFolderState) this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Reflect Map"].close();
     },
     copyObjects(cut = false, group = false, ret = false) {
         let selected = this.objectSelected();
@@ -1910,7 +1930,7 @@ const editor = {
                 "objects": obs
             };
         this.download(JSON.stringify(obs), 'asset_' + nme.replace(/ /g,"_") + '.txt', 'text/plain');
-        this.advancedGUI.__folders["Advanced"].__folders['MultiObject'].__folders['Export'].close();
+        if (!this.settings.preserveFolderState) this.advancedGUI.__folders["Advanced"].__folders['MultiObject'].__folders['Export'].close();
     },
     pasteObjects() {
         if (!this.copy) return alert('Please copy objects first');
@@ -2107,7 +2127,6 @@ const editor = {
         this.addObject(ObjectInstance.deserialize({p: [pos.x, pos.y - 10, pos.z], s: [10, 10, 10], id: 21}));
     },
     colorizeMap(input = false, gold = false, rand = false) {
-        if (this.settings.backupMap) this.exportMap();
         if (input != false && (input == null || input == "")) return alert("Please input colors (ex: #000000,#ffffff)");
         if (input) input = input.trim().split(',');
 
@@ -2124,8 +2143,6 @@ const editor = {
         return hex;
     },
     scaleMap() {
-        if (this.settings.backupMap) this.exportMap();
-
         let sX = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Scale Map"].__controllers[0].getValue(),
             sY = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Scale Map"].__controllers[1].getValue(),
             sZ = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Scale Map"].__controllers[2].getValue();
@@ -2146,7 +2163,6 @@ const editor = {
         }
     },
     breakableMap() {
-        if (this.settings.backupMap) this.exportMap();
         if (!confirm("Are you sure you want to make the whole map breakable?")) return;
         let health = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Breakable Map"].__controllers[0].getValue(),
         forcecol = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Breakable Map"].__controllers[0].getValue();
@@ -2376,7 +2392,7 @@ const editor = {
         this.advancedGUI.__folders["Advanced"].__folders['Other Features'].__folders['Frame'].__controllers[0].setValue(10);
         this.advancedGUI.__folders["Advanced"].__folders['Other Features'].__folders['Frame'].__controllers[1].setValue(false);
         this.advancedGUI.__folders["Advanced"].__folders['Other Features'].__folders['Frame'].__controllers[2].setValue(false);
-        this.advancedGUI.__folders["Advanced"].__folders['Other Features'].__folders['Frame'].close();
+        if (!this.settings.preserveFolderState) this.advancedGUI.__folders["Advanced"].__folders['Other Features'].__folders['Frame'].close();
     },
     objectSelected(group = false) {
         let selected = this.transformControl.object;
@@ -2443,7 +2459,7 @@ const editor = {
         file.type = 'file';
         file.id = 'jsonInput';
 
-        let self = this;
+        let scope = this;
         file.addEventListener('change', ev => {
             if (ev.target.files.length != 1) return alert('Please select 1 file');
             let f = ev.target.files[0];
@@ -2455,12 +2471,12 @@ const editor = {
                         let img2 = new Image();
                         img2.onload = () => {
                             args.unshift(img2);
-                            self[callback](...args);
+                            scope[callback](...args);
                         }
                         img2.src = e.target.result;
                     } else {
                         args.unshift(e.target.result);
-                        self[callback](...args);
+                        scope[callback](...args);
                     }
                 };
             })(f);
