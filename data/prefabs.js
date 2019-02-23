@@ -197,6 +197,12 @@ module.exports.prefabs = {
         castShadow: true,
         receiveShadow: true
     },
+    DOOR: {
+        dontRound: true,
+        gen: parent => loadObj(parent, "models/door_0.obj", "textures/door_0.png", config.doorScale),
+        castShadow: true,
+        receiveShadow: true
+    },
     GRASS: {
         complex: true,
         doubleSide: true,

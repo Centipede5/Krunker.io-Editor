@@ -108,7 +108,7 @@ module.exports.serverConfig = [{
         bool: !0
     }
 ],
-module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR", "ACIDBARREL", "PLACEHOLDER"],
+module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR", "ACIDBARREL", "DOOR", "PLACEHOLDER"],
 module.exports.textureIDS = ["WALL", "DIRT", "FLOOR", "GRID", "GREY", "DEFAULT", "ROOF", "FLAG", "GRASS", "CHECK", "WATER", "LAVA"],
 module.exports.objectLimit = 3500,
 module.exports.objectLimitF = 6e3,
@@ -130,6 +130,7 @@ module.exports.stackScale = 6,
 module.exports.barrelScale = 4,
 module.exports.acidbarrelScale = module.exports.barrelScale,
 module.exports.treeScale = 10,
+module.exports.doorScale = 5,
 module.exports.coneScale = 4,
 module.exports.containerScale = 7,
 module.exports.containerrScale = module.exports.containerScale,
@@ -239,7 +240,7 @@ module.exports.assistMin = 20,
 module.exports.medalAnim = 1e3,
 module.exports.medalDelay = 900,
 module.exports.scoreStreak = 2e3,
-module.exports.feedTimer = 1500,
+module.exports.feedTimer = 2e3,
 module.exports.spinTimer = 1800,
 module.exports.endStats = ["sid", "name", "score", "kills", "deaths", "reward"],
 module.exports.endForm = {
@@ -16140,7 +16141,7 @@ module.exports.manager = function (t, e, n, s) {
                     this.manager.addObjective(v, y, x, a.s[0], a.s[2], a.s[1]);
                 else if ("PARTICLES" != a.id)
                     "PLANE" == a.id || "BILLBOARD" == a.id ? this.manager.addPlane(v, y, x, a.s[2] / 2, a.s[0] / 2, {
-                        src: "BILLBOARD" == a.id ? "pubs/bill_" + n.randInt(1, 2) : a.t.toLowerCase() + "_0",
+                        src: "BILLBOARD" == a.id ? "pubs/bill_" + n.randInt(1, 3) : a.t.toLowerCase() + "_0",
                         emissive: a.e || 0,
                         noise: a.en || 0,
                         opacity: 1 != a.o && null != a.o ? a.o : 1,
@@ -16437,6 +16438,12 @@ module.exports.prefabs = {
     CONTAINERR: {
         dontRound: true,
         gen: parent => loadObj(parent, "models/containerr_0.obj", "textures/containerr_0.png", config.containerScale),
+        castShadow: true,
+        receiveShadow: true
+    },
+    DOOR: {
+        dontRound: true,
+        gen: parent => loadObj(parent, "models/door_0.obj", "textures/door_0.png", config.doorScale),
         castShadow: true,
         receiveShadow: true
     },
@@ -17401,6 +17408,7 @@ const editor = {
         this.mapConfig = {
             name: "New Krunker Map",
             modURL: "",
+            shadowR: 1024,
             ambient: '#97a0a8',
             light: '#f2f8fc',
             sky: '#dce8ed',
@@ -17519,6 +17527,7 @@ const editor = {
         this.mapGUI.add(this.mapConfig, "fogD", 10, 2000).name("Fog Distance").listen().onChange(v => {
             this.scene.fog.far = v;
         });
+        this.mapGUI.add(this.mapConfig, "shadowR", 128, 4096).name("Shadow Res").listen().onChange(() => {});
 
         let createGUI = gui.addFolder("Create Object");
         let modelsGUI = createGUI.addFolder("Models");
@@ -18697,7 +18706,7 @@ const editor = {
         }
     },
     createBoundingBox(x, y, z, sX, sY, sZ, rY) {
-        let obph = {p: [x, y, z], s: [sX + 1, sY + 1, sZ + 1], r: [0, rY, 0], id: 21};
+        let obph = {p: [x, y, z], s: [sX + 1, sY + 1, sZ + 1], r: [0, rY, 0], id: config.prefabIDS.length - 1};
         return ObjectInstance.deserialize(obph);
     },
     rotateObjects(jsp, deg) {
@@ -19076,7 +19085,7 @@ const editor = {
     },
     createPlaceholder() {
         let pos = this.camera.getWorldPosition();
-        this.addObject(ObjectInstance.deserialize({p: [pos.x, pos.y - 10, pos.z], s: [10, 10, 10], id: 21}));
+        this.addObject(ObjectInstance.deserialize({p: [pos.x, pos.y - 10, pos.z], s: [10, 10, 10], id: config.prefabIDS.length - 1}));
     },
     colorizeMap(input = false, gold = false, rand = false) {
         if (input != false && (input == null || input == "")) return alert("Please input colors (ex: #000000,#ffffff)");
@@ -21494,8 +21503,8 @@ module.exports.initScene = function (t) {
 		this.skyLight.position.y = i.lightDistance * Math.sin(r) * Math.sin(e),
 		this.skyLight.position.z = i.lightDistance * Math.sin(r) * Math.cos(e),
 		this.skyLight.castShadow = !0,
-		this.skyLight.shadow.mapSize.width = i.shadowRes,
-		this.skyLight.shadow.mapSize.height = i.shadowRes,
+		this.skyLight.shadow.mapSize.width = t.shadowR || i.shadowRes,
+		this.skyLight.shadow.mapSize.height = t.shadowR || i.shadowRes,
 		this.skyLight.shadow.camera.far = i.shadowDst
 	}
 	this.scene.fog = new o.Fog(t.fog, 1, t.fogD),

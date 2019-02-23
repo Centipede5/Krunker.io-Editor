@@ -449,6 +449,7 @@ const editor = {
         this.mapConfig = {
             name: "New Krunker Map",
             modURL: "",
+            shadowR: 1024,
             ambient: '#97a0a8',
             light: '#f2f8fc',
             sky: '#dce8ed',
@@ -567,6 +568,7 @@ const editor = {
         this.mapGUI.add(this.mapConfig, "fogD", 10, 2000).name("Fog Distance").listen().onChange(v => {
             this.scene.fog.far = v;
         });
+        this.mapGUI.add(this.mapConfig, "shadowR", 128, 4096).name("Shadow Res").listen().onChange(() => {});
 
         let createGUI = gui.addFolder("Create Object");
         let modelsGUI = createGUI.addFolder("Models");
@@ -1745,7 +1747,7 @@ const editor = {
         }
     },
     createBoundingBox(x, y, z, sX, sY, sZ, rY) {
-        let obph = {p: [x, y, z], s: [sX + 1, sY + 1, sZ + 1], r: [0, rY, 0], id: 21};
+        let obph = {p: [x, y, z], s: [sX + 1, sY + 1, sZ + 1], r: [0, rY, 0], id: config.prefabIDS.length - 1};
         return ObjectInstance.deserialize(obph);
     },
     rotateObjects(jsp, deg) {
@@ -2124,7 +2126,7 @@ const editor = {
     },
     createPlaceholder() {
         let pos = this.camera.getWorldPosition();
-        this.addObject(ObjectInstance.deserialize({p: [pos.x, pos.y - 10, pos.z], s: [10, 10, 10], id: 21}));
+        this.addObject(ObjectInstance.deserialize({p: [pos.x, pos.y - 10, pos.z], s: [10, 10, 10], id: config.prefabIDS.length - 1}));
     },
     colorizeMap(input = false, gold = false, rand = false) {
         if (input != false && (input == null || input == "")) return alert("Please input colors (ex: #000000,#ffffff)");

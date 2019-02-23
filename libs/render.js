@@ -462,8 +462,8 @@ module.exports.initScene = function (t) {
 		this.skyLight.position.y = i.lightDistance * Math.sin(r) * Math.sin(e),
 		this.skyLight.position.z = i.lightDistance * Math.sin(r) * Math.cos(e),
 		this.skyLight.castShadow = !0,
-		this.skyLight.shadow.mapSize.width = i.shadowRes,
-		this.skyLight.shadow.mapSize.height = i.shadowRes,
+		this.skyLight.shadow.mapSize.width = t.shadowR || i.shadowRes,
+		this.skyLight.shadow.mapSize.height = t.shadowR || i.shadowRes,
 		this.skyLight.shadow.camera.far = i.shadowDst
 	}
 	this.scene.fog = new o.Fog(t.fog, 1, t.fogD),

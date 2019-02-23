@@ -15833,7 +15833,7 @@ module.exports.manager = function (t, e, n, s) {
                     this.manager.addObjective(v, y, x, a.s[0], a.s[2], a.s[1]);
                 else if ("PARTICLES" != a.id)
                     "PLANE" == a.id || "BILLBOARD" == a.id ? this.manager.addPlane(v, y, x, a.s[2] / 2, a.s[0] / 2, {
-                        src: "BILLBOARD" == a.id ? "pubs/bill_" + n.randInt(1, 2) : a.t.toLowerCase() + "_0",
+                        src: "BILLBOARD" == a.id ? "pubs/bill_" + n.randInt(1, 3) : a.t.toLowerCase() + "_0",
                         emissive: a.e || 0,
                         noise: a.en || 0,
                         opacity: 1 != a.o && null != a.o ? a.o : 1,
