@@ -17780,7 +17780,6 @@ const editor = {
             scope.mapConfig.name = oldname;
         }, milli);
     },
-    
 
     // INIT HISTORY (UNDO / REDO)
     initHistory() {
