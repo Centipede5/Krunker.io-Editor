@@ -646,7 +646,7 @@ const editor = {
             frameFloor: false,
             reflectDir: 0,
             reflectMap: (() => this.reflectMap()),
-            speedReset: (() => (this.setSettings('speedNormal', 70), this.setSettings('speedSprint', 180), this.advancedGUI.updateDisplay())),
+            speedReset: (() => (this.setSettings(['speedNormal', 'speedSprint'], [70, 180]), this.advancedGUI.updateDisplay())),
             breakableHealth: 1,
             breakableCollision: false,
             breakableMap: (() => this.breakableMap()),
@@ -659,7 +659,8 @@ const editor = {
             plannerSize: 10,
             plannerColor: '#460050',
             plannerExecute: (() => this.layoutPlanner()),
-            snappingReset: (() => (this.setSettings('translationSnapping', 1), this.setSettings('rotationSnapping', 10), this.advancedGUI.updateDisplay())),
+            snappingReset: (() => (this.setSettings(['translationSnapping', 'rotationSnapping'], [1, 10]), this.advancedGUI.updateDisplay(), this.updateSnapping())),
+            gridReset: (() => (this.setSettings(['gridOpacity', 'gridSize', 'gridSpacing', 'gridVisibility'], [this.defaultSettings.gridOpacity, this.defaultSettings.gridSize, this.defaultSettings.gridSpacing, this.defaultSettings.gridVisibility]), this.advancedGUI.updateDisplay(), this.updateGridHelper())),
         };
         
         let mainMenu = this.advancedGUI.addFolder("Advanced");
@@ -768,6 +769,7 @@ const editor = {
         gridMenu.add(this.settings, "gridOpacity", 0.05, 1, 0.05).name("Opacity").onChange(t => {this.setSettings('gridOpacity', t), this.updateGridHelper()});
         gridMenu.add(this.settings, "gridSize").name("Size").onChange(t => {this.setSettings('gridSize', Math.abs(t) || this.defaultSettings.gridSize), this.updateGridHelper()});      
         gridMenu.add(this.settings, "gridSpacing").name("Spacing").onChange(t => {this.setSettings('gridSpacing', Math.abs(t) || this.defaultSettings.gridSpacing), this.updateGridHelper()}); 
+        gridMenu.add(options, "gridReset").name("Reset Grid");
 
         let speedMenu = settingsMenu.addFolder('Speed');
         speedMenu.add(this.settings, "speedNormal").name("Normal").onChange(t => {this.setSettings('speedNormal', Math.abs(t) || this.defaultSettings.speedNormal)});      
@@ -875,7 +877,6 @@ const editor = {
 
             case 'remove':
                 if (type == 'undo') {
-                    console.log(last.obj);
                     this.addObject(last.obj, false, false);
                     this.redos.push(last);
                 } else {
@@ -1194,7 +1195,6 @@ const editor = {
                     let dataUri	= event.target.result;
                     let base64 = dataUri.match(/[^,]*,(.*)/)[1];
                     let json = window.atob(base64);
-                    console.log(json);
                     scope.importMap(json);
                 };
                 reader.readAsDataURL(file);
@@ -1758,42 +1758,26 @@ const editor = {
         }
         return jsp;
     },
-    findCenter(jsp) {
-        let yMin = jsp[0].p[1],
-        yMax = jsp[0].p[1] + jsp[0].s[1],
-        xMin = jsp[0].p[0] - (jsp[0].s[0] / 2),
-        xMax = jsp[0].p[0] + (jsp[0].s[0] / 2),
-        zMin = jsp[0].p[2] - (jsp[0].s[2] / 2),
-        zMax = jsp[0].p[2] + (jsp[0].s[2] / 2);
+    findCenter(jsp, live = false) {
+        let yMin = live ? jsp[0].position.y : jsp[0].p[1],
+        yMax = live ? jsp[0].position.y + jsp[0].scale.y: jsp[0].p[1] + jsp[0].s[1],
+        xMin = live ? jsp[0].position.x - (jsp[0].scale.x / 2) : jsp[0].p[0] - (jsp[0].s[0] / 2),
+        xMax = live ? jsp[0].position.x + (jsp[0].scale.x / 2) : jsp[0].p[0] + (jsp[0].s[0] / 2),
+        zMin = live ? jsp[0].position.z - (jsp[0].scale.z / 2) : jsp[0].p[2] - (jsp[0].s[2] / 2),
+        zMax = live ? jsp[0].position.z + (jsp[0].scale.z / 2) : jsp[0].p[2] + (jsp[0].s[2] / 2);
 
         for (let ob of jsp) {
-            if (ob.p[1] < yMin) yMin = ob.p[1];
-            if (ob.p[1] + ob.s[1] > yMax) yMax = ob.p[1] + ob.s[1];
-            if (ob.p[0] - (ob.s[0] / 2) < xMin) xMin = ob.p[0] - (ob.s[0] / 2);
-            if (ob.p[0] + (ob.s[0] / 2) > xMax) xMax = ob.p[0] + (ob.s[0] / 2);
-            if (ob.p[2] - (ob.s[2] / 2) < zMin) zMin = ob.p[2] - (ob.s[2] / 2);
-            if (ob.p[2] + (ob.s[2] / 2) > zMax) zMax = ob.p[2] + (ob.s[2] / 2);
+            let pos = live ? ob.position.toArray() : ob.p;
+            let size = live ? ob.scale.toArray() : ob.s;
+            if (pos[1] < yMin) yMin = pos[1];
+            if (pos[1] + size[1] > yMax) yMax = pos[1] + size[1];
+            if (pos[0] - (size[0] / 2) < xMin) xMin = pos[0] - (size[0] / 2);
+            if (pos[0] + (size[0] / 2) > xMax) xMax = pos[0] + (size[0] / 2);
+            if (pos[2] - (size[2] / 2) < zMin) zMin = pos[2] - (size[2] / 2);
+            if (pos[2] + (size[2] / 2) > zMax) zMax = pos[2] + (size[2] / 2);
         }
 
         return [Math.round((xMin + xMax) / 2), yMin, Math.round((zMin + zMax) / 2), Math.round(Math.abs(xMin) + Math.abs(xMax)), yMax, Math.round(Math.abs(zMin) + Math.abs(zMax))];
-    },
-    findMapCenter() {
-        let jsp = this.objInstances,
-        yMin = jsp[0].position.y,
-        xMin = jsp[0].position.x - (jsp[0].scale.x / 2),
-        xMax = jsp[0].position.x + (jsp[0].scale.x / 2),
-        zMin = jsp[0].position.z - (jsp[0].scale.z / 2),
-        zMax = jsp[0].position.z + (jsp[0].scale.z / 2);
-
-        for (let ob of jsp) {
-            if (ob.pos[1]  < yMin) yMin = ob.pos[1];
-            if (ob.pos[0] - (ob.size[0] / 2) < xMin) xMin = ob.pos[0] - (ob.size[0] / 2);
-            if (ob.pos[0] + (ob.size[0] / 2) > xMax) xMax = ob.pos[0] + (ob.size[0] / 2);
-            if (ob.pos[2] - (ob.size[2] / 2) < zMin) zMin = ob.pos[2] - (ob.size[2] / 2);
-            if (ob.pos[2] + (ob.size[2] / 2) > zMax) zMax = ob.pos[2] + (ob.size[2] / 2);
-        }
-
-        return [Math.round((xMin + xMax)/2), yMin, Math.round((zMin + zMax) / 2)];
     },
     applyCenter(objects) {
         let center = this.findCenter(objects);
@@ -1852,7 +1836,7 @@ const editor = {
     },
     reflectMap() {
         let dir = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Reflect Map"].__controllers[0].getValue()),
-        reference = this.findMapCenter();
+        reference = this.findCenter(this.objInstances, true);
 
         for (let ob of this.objInstances) {
             let pos = ob.pos;
@@ -2134,15 +2118,8 @@ const editor = {
 
         for (let ob of this.objInstances) {
             if (input) ob.color = input.length > 1 ? input[Math.floor(Math.random() * input.length)] : input[0];
-            if (rand) ob.color = this.getRandomColor();
+            if (rand) ob.color = "#" + Math.random().toString(16).slice(2, 8);
         }
-    },
-    getRandomColor() {
-        let length = 6,
-            chars = '0123456789ABCDEF',
-            hex = '#';
-        while (length--) hex += chars[(Math.random() * 16) | 0];
-        return hex;
     },
     scaleMap() {
         let sX = this.advancedGUI.__folders["Advanced"].__folders["Other Features"].__folders["Scale Map"].__controllers[0].getValue(),
@@ -2407,8 +2384,14 @@ const editor = {
         let json = prompt("Import Object Json", "");
         if (json != null && json != "" && this.objectSelected()) this.replaceObject(json, true, false, true);
     },
-    setSettings(k, v) {
-        this.settings[k] = v;
+    setSettings(keys, values) {
+        if (!Array.isArray(keys)) {
+            keys = [keys];
+            values = [values];
+        }
+        for (let i = 0; i < keys.length; i++) {
+            this.settings[keys[i]] = values[i];
+        }
         window.saveVal('kro_editor', JSON.stringify(this.settings));
     },
     resetSettings() {
@@ -2419,7 +2402,7 @@ const editor = {
         alert('Some settings require a refresh take effect');
     },
     degToRad(r) {
-        return this.settings.degToRad ? [r[0] * (Math.PI / 180), r[1] * (Math.PI / 180), r[2] * (Math.PI / 180)] : r;
+        return this.settings.degToRad ? r.map(x => x * (Math.PI / 180)) : r;
     },
     rotateAroundPoint(obj, point, axis, theta, pointIsWorld) {
         pointIsWorld = (pointIsWorld === undefined)? false : pointIsWorld;
