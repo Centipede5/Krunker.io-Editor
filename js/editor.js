@@ -109,7 +109,7 @@ module.exports.serverConfig = [{
     }
 ],
 module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR", "ACIDBARREL", "DOOR", "PLACEHOLDER"],
-module.exports.textureIDS = ["WALL", "DIRT", "FLOOR", "GRID", "GREY", "DEFAULT", "ROOF", "FLAG", "GRASS", "CHECK", "WATER", "LAVA"],
+module.exports.textureIDS = ["WALL", "DIRT", "FLOOR", "GRID", "GREY", "DEFAULT", "ROOF", "FLAG", "GRASS", "CHECK", "LINES", "WATER", "LAVA"],
 module.exports.objectLimit = 3500,
 module.exports.objectLimitF = 6e3,
 module.exports.spawnLimit = 20,
@@ -16663,6 +16663,9 @@ module.exports.texturePrefabs = {
     },
     GRASS: {
         src: "grass_0",
+        filter: THREE.NearestFilter
+    },LINES: {
+        src: "lines_0",
         filter: THREE.NearestFilter
     },
     WATER: {
