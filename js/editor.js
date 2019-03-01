@@ -18684,7 +18684,7 @@ const editor = {
             let yAxis = new THREE.Vector3(0, 1, 0);
             if (fix) {
                 if (fix != 'RAMP') this.objConfigGUI.__controllers[1].setValue(false);
-                if (['VEHICLE', 'CONTAINER', 'CONTAINERR'].includes(fix)) rotation = Math.asb(360 - THREE.Math.radToDeg(selected.rotation.y));
+                if (['VEHICLE', 'CONTAINER', 'CONTAINERR'].includes(fix)) rotation = Math.abs(360 - THREE.Math.radToDeg(selected.rotation.y));
                 if (['TREE'].includes(fix)) rotation = 180 + THREE.Math.radToDeg(selected.rotation.y);
             }
             
