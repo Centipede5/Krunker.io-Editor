@@ -1720,9 +1720,9 @@ const editor = {
             let rotation = parseInt(this.advancedGUI.__folders["Advanced"].__folders["Assets"].__controllers[1].getValue());
             let yAxis = new THREE.Vector3(0, 1, 0);
             if (fix) {
-                console.log(selected.rotation.y, THREE.Math.radToDeg(selected.rotation.y));
+                console.log(selected.rotation.y, THREE.Math.radToDeg(selected.rotation.y), 360 - ((selected.rotation.y < 0 ? -180 : 0) + THREE.Math.radToDeg(selected.rotation.y)));
                 if (fix != 'RAMP') this.objConfigGUI.__controllers[1].setValue(false);
-                if (['VEHICLE', 'CONTAINER', 'CONTAINERR', 'TREE'].includes(fix)) rotation = 360 - ((selected.rotation.y < 0 ? 180 : 0) + THREE.Math.radToDeg(selected.rotation.y));
+                if (['VEHICLE', 'CONTAINER', 'CONTAINERR', 'TREE'].includes(fix)) rotation = 360 - ((selected.rotation.y < 0 ? -180 : 0) + THREE.Math.radToDeg(selected.rotation.y));
             }
             
             if ([90, 180, 270].includes(rotation)) {
