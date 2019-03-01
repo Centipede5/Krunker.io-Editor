@@ -421,6 +421,10 @@ module.exports.texturePrefabs = {
         src: "grass_0",
         filter: THREE.NearestFilter
     },
+LINES: {
+        src: "lines_0",
+        filter: THREE.NearestFilter
+    },
     WATER: {
         src: "water_0",
         filter: THREE.NearestFilter
