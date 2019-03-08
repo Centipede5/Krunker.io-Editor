@@ -1139,7 +1139,7 @@ const editor = {
         });
         
         window.addEventListener("resize", () => {
-            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.aspect = this.container.offsetWidth / this.container.offsetHeight;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
         }); 
@@ -1921,7 +1921,7 @@ const editor = {
     pasteObjects() {
         if (!this.copy) return alert('Please copy objects first');
         if (!this.objectSelected()) return alert('Select a object you would like to replace with your copied objects');
-        this.replaceObject(this.copy, true);
+        this.replaceObject(this.copy, true, false, true);
     },
     createGroup(owner, objects, rot = 0) {
         let ids = [];
