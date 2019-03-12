@@ -108,7 +108,7 @@ module.exports.serverConfig = [{
     }
 ],
 module.exports.prefabIDS = ["CUBE", "CRATE", "BARREL", "LADDER", "PLANE", "SPAWN_POINT", "CAMERA_POSITION", "VEHICLE", "STACK", "RAMP", "SCORE_ZONE", "BILLBOARD", "DEATH_ZONE", "PARTICLES", "OBJECTIVE", "TREE", "CONE", "CONTAINER", "GRASS", "CONTAINERR", "ACIDBARREL", "DOOR", "WINDOW", "PLACEHOLDER"],
-module.exports.textureIDS = ["WALL", "DIRT", "FLOOR", "GRID", "GREY", "DEFAULT", "ROOF", "FLAG", "GRASS", "CHECK", "LINES","BRICK", "WATER", "LAVA"],
+module.exports.textureIDS = ["WALL", "DIRT", "FLOOR", "GRID", "GREY", "DEFAULT", "ROOF", "FLAG", "GRASS", "CHECK", "LINES", "BRICK"],
 module.exports.objectLimit = 3500,
 module.exports.objectLimitF = 6e3,
 module.exports.spawnLimit = 20,

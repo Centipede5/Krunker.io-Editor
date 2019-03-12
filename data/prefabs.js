@@ -203,6 +203,13 @@ module.exports.prefabs = {
         castShadow: true,
         receiveShadow: true
     },
+    WINDOW: {
+        dontRound: true,
+        gen: parent => loadObj(parent, "models/window_0.obj", "textures/window_0.png", config.windowScale),
+        castShadow: true,
+        transparent: true,
+        receiveShadow: true
+    },
     GRASS: {
         complex: true,
         doubleSide: true,
@@ -425,12 +432,8 @@ module.exports.texturePrefabs = {
         src: "lines_0",
         filter: THREE.NearestFilter
     },
-    WATER: {
-        src: "water_0",
-        filter: THREE.NearestFilter
-    },
-    LAVA: {
-        src: "lava_0",
+    BRICK: {
+        src: "brick_0",
         filter: THREE.NearestFilter
     }
 };
