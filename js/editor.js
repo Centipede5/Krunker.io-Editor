@@ -17541,10 +17541,12 @@ const editor = {
         let createGUI = gui.addFolder("Create Object");
         let modelsGUI = createGUI.addFolder("Models");
         let toolsGUI = createGUI.addFolder("Tools");
+        let basicsGUI = createGUI.addFolder("Basics");
         for (let id in prefabs) {
             if (!prefabs.hasOwnProperty(id) || prefabs[id].noExport) continue;
-            (prefabs[id].gen ? modelsGUI : (prefabs[id].tool ? toolsGUI : createGUI)).add(this.createObjects, id).name(this.formatConstName(id));
+            (prefabs[id].gen ? modelsGUI : (prefabs[id].tool ? toolsGUI : basicsGUI)).add(this.createObjects, id).name(this.formatConstName(id));
         }
+        basicsGUI.open();
         createGUI.open();
 
         this.objConfigGUI = gui.addFolder("Object Config");
